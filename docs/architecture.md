@@ -7,6 +7,7 @@
 - No frontend - manage through Django Admin
 - Rest API via Django Ninja
 - instructor for LLM access
+- Django Tasks with django-tasks-db for asynchronous tasks
 
 ### Classes
 
