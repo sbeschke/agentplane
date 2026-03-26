@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Agent Plane - {{ agent.name }}</title>
+</head>
+<body>
+    <h1>{{ agent.name }}</h1>
+    <p>{{ agent.description }}</p>
+    <form id="message-form" action="{% url 'chat' agent.slug %}" method="post">
+        {% csrf_token %}
+        <fieldset>
+            <legend>Chat with {{ agent.name }}</legend>
+            <textarea id="message" name="message" placeholder="Type your message here..." rows="10" cols="80" required></textarea>
+            <button type="submit">Send</button>
+        </fieldset>
+    </form>
+</body>
+</html>

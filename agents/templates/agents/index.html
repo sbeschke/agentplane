@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Agent Plane</title>
+</head>
+<body>
+    {% for agent in agents %}
+        <h2><a href="{% url 'detail' agent.slug %}">{{ agent.name }}</a></h2>
+        <p>{{ agent.description }}</p>
+    {% endfor %}
+</body>
+</html>
