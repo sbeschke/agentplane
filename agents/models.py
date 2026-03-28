@@ -6,7 +6,7 @@ class Agent(models.Model):
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    system_prompt = models.TextField(blank=True, null=True)
+    instructions = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.name

@@ -13,7 +13,7 @@ class AgentAdmin(admin.ModelAdmin):
             'fields': ('name', 'slug', 'description')
         }),
         ('Configuration', {
-            'fields': ('system_prompt',)
+            'fields': ('instructions',)
         }),
         ('Metadata', {
             'fields': ('created_at', 'updated_at'),
