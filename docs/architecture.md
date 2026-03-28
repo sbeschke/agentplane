@@ -2,11 +2,11 @@
 
 ## PoC
 
-- Django
+- Django + Django Admin for data management and record keeping
 - SQLite storage
-- No frontend - manage through Django Admin
+- Minimalistic, server-driven frontend with Django and HTMX
 - Rest API via Django Ninja
-- any-llm for LLM access
+- Pydantic AI for agentic logic
 - Django Tasks with django-tasks-db for asynchronous tasks
 
 ### Classes
