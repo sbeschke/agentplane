@@ -1,11 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Agent Plane - {{ agent.name }}</title>
-</head>
-<body>
+{% extends 'agents/base.html' %}
+{% block content %}
     <p><b>You:</b> {{ message }}</p>
     <p><b>{{ agent.name }}:</b> {{ response }}</p>
-</body>
-</html>
+{% endblock %}

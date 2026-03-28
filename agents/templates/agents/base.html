@@ -1,0 +1,23 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agent Plane</title>
+    <link rel="stylesheet" href="{% static 'bulma.css' %}">
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar" role="navigation" aria-label="main navigation">
+            <div class="navbar-brand">
+                <a class="navbar-item" href="{% url 'index' %}">
+                    <strong>Agent Plane</strong>
+                </a>
+            </div>
+        </nav>
+        {% block content %}
+        {% endblock %}
+    </div>
+</body>
+</html>
