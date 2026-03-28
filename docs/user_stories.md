@@ -2,10 +2,13 @@
 
 ## Milestone 0 - PoC
 
-- Users can create a new agent by specifying a prompt
-
-- A request can be sent to an LLM from the admin interface
-
-- Developers can send a prompt to an endpoint and get the agent's response
+- [x] Admins can create a new agent by specifying a system prompt
+- [ ] Users can prompt their agent through the web UI
+    - [x] LLM request can be sent
+    - [ ] System prompt is used
+    - [ ] The web UI is minimally styled
+- [ ] Developers can send a prompt via REST API and get the agent's response
     - LLM provider is hardcoded
+
+
 
