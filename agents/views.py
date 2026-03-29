@@ -1,7 +1,7 @@
-from pydantic_ai import Agent as PydanticAgent
 from django.shortcuts import get_object_or_404, render
 
 from agents.models import Agent
+from agents.services import chat
 
 def index(request):
     agents = Agent.objects.all()
@@ -17,11 +17,7 @@ def chat(request, agent_slug):
     if request.method == "POST":
         message = request.POST.get("message")
 
-    pydantic_agent = PydanticAgent(
-        "mistral:mistral-small-latest",
-        instructions=agent.instructions,
-    )
-    result = pydantic_agent.run_sync(message)
+    response = chat(agent, message) if message else None
 
     return render(
         request,
@@ -29,5 +25,5 @@ def chat(request, agent_slug):
         {
             "agent": agent,
             "message": message,
-            "response": result.output,
+            "response": response,
         })
