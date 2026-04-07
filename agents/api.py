@@ -4,13 +4,17 @@ from ninja import NinjaAPI, Schema
 from agents.models import Agent
 from agents.services import chat
 
+
 class ConversationIn(Schema):
     message: str
+
 
 class ConversationOut(Schema):
     response: str
 
+
 api = NinjaAPI()
+
 
 @api.post("/agents/{agent_slug}/conversation/")
 def start_conversation(request, agent_slug: str, data: ConversationIn):

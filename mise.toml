@@ -1,0 +1,10 @@
+[tasks]
+dev = "uv run python manage.py runserver"
+test = "uv run python manage.py test"
+mmm = "uv run python manage.py makemigrations && uv run python manage.py migrate"
+format = "pre-commit run --all-files"
+
+[tools]
+pre-commit = "latest"
+ruff = "latest"
+uv = "latest"

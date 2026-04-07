@@ -2,6 +2,7 @@ from pydantic_ai import Agent
 
 from agents import models
 
+
 def chat(conversation: models.Conversation, message: str) -> str:
     """Chat with the agent and return the response text."""
     history = conversation.get_history()
