@@ -1,7 +1,14 @@
 {% extends 'agents/base.html' %}
 {% block content %}
     <h1 class="title">Conversation with {{ conversation.agent.name }}</h1>
-    <form id="message-form" action="{% url 'chat' conversation.id %}" method="post">
+
+    <div id="chat-history" class="content">
+        {% for message in conversation.history %}
+            <pre>{{ message }}</pre>
+        {% endfor %}
+    </div>
+
+    <form id="message-form" action="{% url 'conversation_detail' conversation.id %}" method="post">
         {% csrf_token %}
         <fieldset>
             <legend>Chat with {{ conversation.agent.name }}</legend>

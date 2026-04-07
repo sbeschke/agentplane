@@ -1,12 +1,14 @@
-from pydantic_ai import Agent as PydanticAgent
+from pydantic_ai import Agent
 
-from agents.models import Agent
+from agents import models
 
-def chat(agent: Agent, message: str) -> str:
+def chat(conversation: models.Conversation, message: str) -> str:
     """Chat with the agent and return the response text."""
-    pydantic_agent = PydanticAgent(
+    history = conversation.get_history()
+    pydantic_agent = Agent(
         "mistral:mistral-small-latest",
-        instructions=agent.instructions,
+        instructions=conversation.agent.instructions,
     )
-    result = pydantic_agent.run_sync(message)
+    result = pydantic_agent.run_sync(message, message_history=history)
+    conversation.set_history(result.all_messages())
     return result.output

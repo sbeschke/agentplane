@@ -23,22 +23,8 @@ def conversation_list(request):
 
 def conversation_detail(request, conversation_id):
     conversation = get_object_or_404(Conversation, id=conversation_id)
-    return render(request, "agents/conversation_detail.html", {"conversation": conversation})
-
-def chat(request, conversation_id: int):
-    conversation = get_object_or_404(Conversation, id=conversation_id)
-    agent = conversation.agent
-    message = None
     if request.method == "POST":
         message = request.POST.get("message")
-
-    response = services.chat(agent, message) if message else None
-
-    return render(
-        request,
-        "agents/chat.html",
-        {
-            "agent": agent,
-            "message": message,
-            "response": response,
-        })
+        if message:
+            _ = services.chat(conversation, message)
+    return render(request, "agents/conversation_detail.html", {"conversation": conversation})

@@ -9,6 +9,5 @@ urlpatterns = [
     path("agents/<str:agent_slug>/", views.agent_detail, name="agent_detail"),
     path("conversations/", views.conversation_list, name="conversation_list"),
     path("conversations/<int:conversation_id>/", views.conversation_detail, name="conversation_detail"),
-    path("conversations/<int:conversation_id>/chat/", views.chat, name="chat"),
     path("api/", api.api.urls),
 ]  + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
