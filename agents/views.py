@@ -1,23 +1,38 @@
-from django.shortcuts import get_object_or_404, render
+from django.http import HttpResponseBadRequest
+from django.shortcuts import get_object_or_404, redirect, render
 
-from agents.models import Agent
-from agents.services import chat
+from agents import services
+from agents.models import Agent, Conversation
 
 def index(request):
     agents = Agent.objects.all()
     return render(request, "agents/index.html", {"agents": agents})
 
-def detail(request, agent_slug):
+def agent_detail(request, agent_slug):
     agent = get_object_or_404(Agent, slug=agent_slug)
-    return render(request, "agents/detail.html", {"agent": agent})
+    return render(request, "agents/agent_detail.html", {"agent": agent})
 
-def chat(request, agent_slug):
-    agent = get_object_or_404(Agent, slug=agent_slug)
+def conversation_list(request):
+    if request.method == "POST":
+        agent_slug = request.POST.get("agent_slug")
+        print(f"Creating conversation for agent slug: {agent_slug}")
+        agent = get_object_or_404(Agent, slug=agent_slug)
+        conversation = agent.conversations.create()
+        return redirect("conversation_detail", conversation_id=conversation.id)
+    return HttpResponseBadRequest("Invalid method")
+
+def conversation_detail(request, conversation_id):
+    conversation = get_object_or_404(Conversation, id=conversation_id)
+    return render(request, "agents/conversation_detail.html", {"conversation": conversation})
+
+def chat(request, conversation_id: int):
+    conversation = get_object_or_404(Conversation, id=conversation_id)
+    agent = conversation.agent
     message = None
     if request.method == "POST":
         message = request.POST.get("message")
 
-    response = chat(agent, message) if message else None
+    response = services.chat(agent, message) if message else None
 
     return render(
         request,

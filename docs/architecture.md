@@ -11,4 +11,5 @@
 
 ### Classes
 
-- `Agent`: Contains an agent definition, defined through name + slug, stores a system prompt.
+- `Agent`: Agents are defined through an "instructions" prompt. Must additionally have a name and slug.
+- `Conversation`: Represents a multi-turn interaction with an agent. Stores the interaction's history in the form of events.
