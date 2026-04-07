@@ -1,4 +1,3 @@
-import json
 
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 from pydantic_core import to_jsonable_python
