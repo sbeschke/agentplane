@@ -10,7 +10,7 @@
 - [x] Developers can send a prompt via REST API and get the agent's response
 - [ ] Both API and UI support multi-turn conversations
     - [x] Conversation history can be stored in the DB
-    - [ ] The web UI allows adding a new chat message to a conversation
+    - [x] The web UI allows adding a new chat message to a conversation
     - [ ] The web UI shows new responses as they come in
     - [ ] The API supports polling for new message events
     - [ ] The API supports adding a new message to a conversation
