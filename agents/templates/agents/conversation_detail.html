@@ -3,12 +3,14 @@
     <h1 class="title">Conversation with {{ conversation.agent.name }}</h1>
 
     <div id="chat-history" class="content">
-        {% for message in conversation.history %}
-            <pre>{{ message }}</pre>
-        {% endfor %}
+        {% include 'agents/partials/conversation_history.html' %}
     </div>
 
-    <form id="message-form" action="{% url 'conversation_detail' conversation.id %}" method="post">
+    <form id="message-form"
+          hx-post="{% url 'conversation_detail' conversation.id %}"
+          hx-target="#chat-history"
+          hx-swap="innerHTML"
+          hx-on::after-request="this.reset()">
         {% csrf_token %}
         <fieldset>
             <legend>Chat with {{ conversation.agent.name }}</legend>

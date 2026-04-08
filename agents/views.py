@@ -31,6 +31,14 @@ def conversation_detail(request, conversation_id):
         message = request.POST.get("message")
         if message:
             _ = services.chat(conversation, message)
+            # Return only the new messages for HTMX to swap into the history div
+            # For simplicity in this first pass, we'll just return all messages as HTML fragments
+            # but a better way would be to identify which ones are new.
+            return render(
+                request,
+                "agents/partials/conversation_history.html",
+                {"conversation": conversation},
+            )
     return render(
         request, "agents/conversation_detail.html", {"conversation": conversation}
     )
