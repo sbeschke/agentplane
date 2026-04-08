@@ -1,7 +1,7 @@
 [tasks]
-dev = "uv run python manage.py runserver"
-test = "uv run python manage.py test"
-mmm = "uv run python manage.py makemigrations && uv run python manage.py migrate"
+dev = "uv run --env-file .env python manage.py runserver"
+test = "uv run --env-file .env python manage.py test"
+mmm = "uv run --env-file .env python manage.py makemigrations && uv run python manage.py migrate"
 format = "pre-commit run --all-files"
 
 [tools]
