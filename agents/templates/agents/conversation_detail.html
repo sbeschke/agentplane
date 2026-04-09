@@ -1,28 +1,34 @@
 {% extends 'agents/base.html' %}
 {% block content %}
-    <h1 class="title">Conversation with {{ conversation.agent.name }}</h1>
+<div class="content">
+    <div style="height: calc(100vh - 80px); display: flex; flex-direction: column;">
+        <h1 class="title">Conversation with {{ conversation.agent.name }}</h1>
 
-    <div id="chat-history" class="content">
-        {% include 'agents/partials/conversation_history.html' %}
+        <div id="chat-history" style="flex-grow: 1; overflow-y: auto; margin-bottom: 1rem;">
+            {% include 'agents/partials/conversation_history.html' %}
+        </div>
+
+        <form id="message-form"
+            hx-post="{% url 'conversation_detail' conversation.id %}"
+            hx-target="#chat-history"
+            hx-swap="innerHTML"
+            hx-on::after-request="this.reset()"
+            style="flex-shrink: 0;">
+            {% csrf_token %}
+            <fieldset>
+                <div class="container" style="display: flex; flex-direction: row;">
+                    <textarea
+                        id="message"
+                        name="message"
+                        class="textarea"
+                        style="flex-shrink: 1;"
+                        placeholder="Type your message here..."
+                        rows="1"
+                        required></textarea>
+                    <button type="submit" class="button is-primary" style="margin-left:10px;">Send</button>
+                </div>
+            </fieldset>
+        </form>
     </div>
-
-    <form id="message-form"
-          hx-post="{% url 'conversation_detail' conversation.id %}"
-          hx-target="#chat-history"
-          hx-swap="innerHTML"
-          hx-on::after-request="this.reset()">
-        {% csrf_token %}
-        <fieldset>
-            <legend>Chat with {{ conversation.agent.name }}</legend>
-            <textarea
-                id="message"
-                name="message"
-                class="textarea"
-                placeholder="Type your message here..."
-                rows="10"
-                cols="80"
-                required></textarea>
-            <button type="submit" class="button is-primary">Send</button>
-        </fieldset>
-    </form>
+</div>
 {% endblock %}
