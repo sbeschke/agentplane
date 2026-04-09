@@ -1,3 +1,19 @@
 {% for message in conversation.history %}
-    <pre>{{ message }}</pre>
+    {% if message.kind == "request" %}
+        {% for part in message.parts %}
+            <div class="message is-dark">
+                <div class="message-body">
+                    <strong>You:</strong> {{ part.content }}
+                </div>
+            </div>
+        {% endfor %}
+    {% elif message.kind == "response" %}
+        {% for part in message.parts %}
+            <div class="message is-light">
+                <div class="message-body">
+                    <strong>{{ conversation.agent.name }}:</strong> {{ part.content }}
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
 {% endfor %}
