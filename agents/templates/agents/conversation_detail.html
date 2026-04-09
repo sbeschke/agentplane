@@ -11,7 +11,7 @@
         <form id="message-form"
             hx-post="{% url 'conversation_detail' conversation.id %}"
             hx-target="#chat-history"
-            hx-swap="innerHTML"
+            hx-swap="innerHTML scroll:bottom"
             hx-on::after-request="this.reset()"
             style="flex-shrink: 0;">
             {% csrf_token %}
@@ -20,6 +20,11 @@
                     <textarea
                         id="message"
                         name="message"
+                        hx-trigger="keydown[key==='Enter'&&!shiftKey]"
+                        hx-post="{% url 'conversation_detail' conversation.id %}"
+                        hx-target="#chat-history"
+                        hx-swap="innerHTML scroll:bottom"
+                        hx-on:keydown="(event.keyCode===13&&!event.shiftKey)?event.preventDefault():null"
                         class="textarea"
                         style="flex-shrink: 1;"
                         placeholder="Type your message here..."
