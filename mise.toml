@@ -1,5 +1,6 @@
 [tasks]
 dev = "uv run --env-file .env python manage.py runserver"
+worker = "uv run --env-file .env python manage.py db_worker"
 test = "uv run --env-file .env python manage.py test"
 mmm = "uv run --env-file .env python manage.py makemigrations && uv run python manage.py migrate"
 format = "pre-commit run --all-files"

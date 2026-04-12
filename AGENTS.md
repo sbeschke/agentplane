@@ -2,9 +2,10 @@
 
 ## Development environment
 
-- `uv` is used for dependency management and environment setup
-- Run all Python commands with `uv run` prefix: for example, `uv run python manage.py runserver`
-- The project uses Django
-    - Running a development server: `uv run python manage.py runserver`
-    - Generating migrations: `uv run python manage.py makemigrations`
-    - Applying migrations: `uv run python manage.py migrate`
+- `mise` is used to set up a development environment
+- `uv` is used to manage Python dependencies
+- Run all Python commands with `mise x --` prefix: for example, `mise x -- uv add somepackage`
+- Some local development shortcuts:
+    - Running tests: `mise x -- uv run python manage.py test`
+    - Generating migrations: `mise x -- uv run python manage.py makemigrations`
+    - Applying migrations: `mise x -- uv run python manage.py migrate`

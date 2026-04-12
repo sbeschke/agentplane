@@ -11,7 +11,7 @@
 - [ ] Both API and UI support multi-turn conversations
     - [x] Conversation history can be stored in the DB
     - [x] The web UI allows adding a new chat message to a conversation
-    - [ ] The web UI shows new responses as they come in
+    - [x] The web UI shows new responses as they come in
     - [ ] The API supports polling for new message events
     - [ ] The API supports adding a new message to a conversation
 - [ ] Developers can connect to a self-hosted LLM (e.g., Ollama)
