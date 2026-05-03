@@ -1,7 +1,10 @@
 import django_tasks
 from django.utils import timezone
+import os
 import openai
 from pydantic_ai import Agent
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.ollama import OllamaProvider
 
 from agents import models
 
@@ -9,9 +12,11 @@ from agents import models
 def discover_models(provider: models.LLMProvider) -> list[str]:
     """Discover available models from the LLM provider."""
     try:
+        # Use a valid-looking key format for local providers
         client = openai.OpenAI(
-            base_url=provider.url, api_key="dummy"
-        )  # For local providers like Ollama
+            base_url=provider.url,
+            api_key=os.environ.get("OPENAI_API_KEY", "sk-local-provider"),
+        )
         models = client.models.list()
         model_names = [model.id for model in models.data]
         provider.available_models = model_names
@@ -37,16 +42,11 @@ def chat(conversation: models.Conversation, message: str) -> None:
         agent = conversation.agent
 
         if agent.llm_provider and agent.model_name:
-            import openai
-
-            client = openai.OpenAI(
-                base_url=agent.llm_provider.url,
-                api_key="dummy",  # Local providers often don't require API key
-            )
+            provider = OllamaProvider(base_url=agent.llm_provider.url)
+            model = OpenAIChatModel(agent.model_name, provider=provider)
             pydantic_agent = Agent(
-                f"openai:{agent.model_name}",
+                model,
                 instructions=agent.instructions,
-                openai_client=client,
             )
         else:
             # Fallback to hardcoded for backward compatibility
