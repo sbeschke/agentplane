@@ -14,8 +14,12 @@
     - [x] The web UI shows new responses as they come in
     - [x] The API supports polling for new message events
     - [x] The API supports adding a new message to a conversation
-- [ ] Developers can connect to a self-hosted LLM (e.g., Ollama)
-    - [ ] Discover available models
+- [x] Developers can configure the LLM provider to point to a self-hosted LLM (e.g., Ollama)
+    - [x] Developers can create an LLM provider in the Admin backend
+    - [x] Developers can specify a URL for an LLM provider to connect to
+    - [x] The app can discover the available models for an Ollama-based LLM provider
+    - [x] The app stores the available models for each provider
+- [x] Developers can configure the LLM provider and model name to use for each agent
 
 ## Milestone 1 - RAG in a box
 

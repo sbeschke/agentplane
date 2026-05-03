@@ -11,9 +11,32 @@ class Agent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     instructions = models.TextField(blank=True, null=True)
+    llm_provider = models.ForeignKey(
+        "LLMProvider",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="LLM provider for this agent",
+    )
+    model_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Model name to use (must be available in the selected provider)",
+    )
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.llm_provider and self.model_name:
+            if self.model_name not in self.llm_provider.available_models:
+                raise ValidationError(
+                    f"Model '{self.model_name}' is not available in provider '{self.llm_provider.name}'. "
+                    f"Available models: {', '.join(self.llm_provider.available_models)}"
+                )
 
 
 class Conversation(models.Model):
@@ -42,3 +65,17 @@ class Conversation(models.Model):
         """Set the conversation history."""
         self.history = to_jsonable_python(messages)
         self.save()
+
+
+class LLMProvider(models.Model):
+    name = models.CharField(max_length=255)
+    url = models.URLField(
+        help_text="Base URL for the LLM provider (e.g., http://localhost:11434/v1 for Ollama)"
+    )
+    available_models = models.JSONField(
+        default=list, help_text="List of available model names"
+    )
+    last_discovered = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return self.name

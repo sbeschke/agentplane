@@ -1,7 +1,26 @@
-from pydantic_ai import Agent
 import django_tasks
+from django.utils import timezone
+import openai
+from pydantic_ai import Agent
 
 from agents import models
+
+
+def discover_models(provider: models.LLMProvider) -> list[str]:
+    """Discover available models from the LLM provider."""
+    try:
+        client = openai.OpenAI(
+            base_url=provider.url, api_key="dummy"
+        )  # For local providers like Ollama
+        models = client.models.list()
+        model_names = [model.id for model in models.data]
+        provider.available_models = model_names
+        provider.last_discovered = timezone.now()
+        provider.save(update_fields=["available_models", "last_discovered"])
+        return model_names
+    except Exception as e:
+        print(f"Error discovering models for {provider.name}: {e}")
+        return []
 
 
 @django_tasks.task
@@ -15,10 +34,27 @@ def chat(conversation: models.Conversation, message: str) -> None:
     """Schedules the background task for chatting."""
     try:
         history = conversation.get_history()
-        pydantic_agent = Agent(
-            "mistral:mistral-small-latest",
-            instructions=conversation.agent.instructions,
-        )
+        agent = conversation.agent
+
+        if agent.llm_provider and agent.model_name:
+            import openai
+
+            client = openai.OpenAI(
+                base_url=agent.llm_provider.url,
+                api_key="dummy",  # Local providers often don't require API key
+            )
+            pydantic_agent = Agent(
+                f"openai:{agent.model_name}",
+                instructions=agent.instructions,
+                openai_client=client,
+            )
+        else:
+            # Fallback to hardcoded for backward compatibility
+            pydantic_agent = Agent(
+                "mistral:mistral-small-latest",
+                instructions=agent.instructions,
+            )
+
         result = pydantic_agent.run_sync(message, message_history=history)
         conversation.set_history(result.all_messages())
     except Exception as e:
