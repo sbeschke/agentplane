@@ -1,6 +1,10 @@
 # Agent Plane
 
-Create, run, and manage agents without code or complex setup. Local-first and portable.
+Agent Plane is a Django application for **creating and running** AI agents. You define each agent with instructions (a system prompt) and the tools it may use, then call it from a **REST API** or through the bundled web UI.
+
+**Local-first** is a core goal: run against self-hosted models with minimal friction, while still supporting third-party LLM providers when you need them. Document **collections** (RAG) let you attach indexed knowledge that agents can search, configured per agent.
+
+For full scope and roadmap detail, see [docs/vision.md](docs/vision.md).
 
 ## Setup
 
