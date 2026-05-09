@@ -31,11 +31,12 @@ The vision of this milestone is to provide an all-in-one solution for setting up
 Users can set up document collections (via Django Admin for now), which are indexed and made available to agents through tool calls. **End-user collection management in the web app is out of scope** for this milestone; Admin-only is acceptable.
 
 - [ ] Developers can create document collections through Django Admin
-    - [ ] A PostgreSQL instance with the pgvector extension is started along with the dev server
+    - [x] A PostgreSQL instance with the pgvector extension is started along with the dev server
     - [ ] The app uses that database for Django data and for vector embeddings (pgvector)
-    - [ ] Collections can be created through Django Admin
+    - [x] Collections can be created through Django Admin
 - [ ] Developers can list collections and retrieve collection details through the REST API
 - [ ] Developers can add documents to a collection through a REST API
+- [ ] Documents can be uploaded through Django Admin
     - [ ] A PDF document can be uploaded to a collection via POST request
     - [ ] The document content gets stored inside a Document object that is owned by the collection
 - [ ] Newly uploaded documents get indexed automatically
