@@ -20,7 +20,6 @@ mise run init  # Set up for development (install dependencies and install pre-co
 
 ```
 mise run dev     # start development server
-mise run worker  # start background worker - needed for development server to work
 mise run test    # run unittests
 mise run mmm     # make migrations and migrate
 ```

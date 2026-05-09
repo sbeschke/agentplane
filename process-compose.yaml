@@ -1,0 +1,18 @@
+version: "0.5"
+
+processes:
+  web:
+    command: "uv run --env-file .env python manage.py runserver"
+    working_dir: "/home/sebastian/projects/agentplane"
+    availability:
+      restart: on_failure
+      backoff_seconds: 2
+      max_restarts: 0
+
+  worker:
+    command: "uv run --env-file .env python manage.py db_worker"
+    working_dir: "/home/sebastian/projects/agentplane"
+    availability:
+      restart: on_failure
+      backoff_seconds: 2
+      max_restarts: 0
