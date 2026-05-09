@@ -3,10 +3,10 @@ dev = "process-compose up"
 test = "uv run --env-file .env python manage.py test"
 migrate = "uv run --env-file .env python manage.py migrate"
 mmm = "uv run --env-file .env python manage.py makemigrations && uv run python manage.py migrate"
-format = "pre-commit run --all-files"
+format = "prek run --all-files"
 
 [tools]
-pre-commit = "latest"
+prek = "latest"
 process-compose = "latest"
 ruff = "latest"
 uv = "latest"
