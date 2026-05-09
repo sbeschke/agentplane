@@ -4,6 +4,9 @@ db.sqlite3
 # Local LLM weights (see scripts/download_local_llm.sh)
 models/*.gguf
 
+# llama.cpp GPU/runtime binaries (see scripts/download_llama_runtime.sh)
+tools/llama-runtime/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

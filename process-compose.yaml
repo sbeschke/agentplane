@@ -2,12 +2,7 @@ version: "0.5"
 
 processes:
   local-llm:
-    command: >-
-      mise x -- llama-server
-      -m models/gemma-2-2b-it-Q4_K_M.gguf
-      --host 127.0.0.1
-      --port 8765
-      -a gemma-2-2b-it
+    command: "bash scripts/run-local-llm.sh"
     working_dir: "."
     availability:
       restart: on_failure
