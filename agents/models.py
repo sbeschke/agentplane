@@ -70,7 +70,7 @@ class Conversation(models.Model):
 class LLMProvider(models.Model):
     name = models.CharField(max_length=255)
     url = models.URLField(
-        help_text="Base URL for the LLM provider (e.g., http://localhost:11434/v1 for Ollama)"
+        help_text="Base URL for an OpenAI-compatible HTTP API (include /v1), e.g. http://127.0.0.1:8765/v1"
     )
     available_models = models.JSONField(
         default=list, help_text="List of available model names"

@@ -16,13 +16,14 @@ The goal of this milestone is to provide minimal conversational AI capabilitiesâ
     - [x] The web UI shows new responses as they come in
     - [x] The API supports polling for new message events
     - [x] The API supports adding a new message to a conversation
-- [x] Developers can configure the LLM provider to point to a self-hosted LLM (e.g., Ollama)
+- [x] Developers can configure the LLM provider to point to a self-hosted model (OpenAI-compatible API)
     - [x] Developers can create an LLM provider in the Admin backend
     - [x] Developers can specify a URL for an LLM provider to connect to
-    - [x] The app can discover the available models for an Ollama-based LLM provider
+    - [x] The app can discover the available models for a provider
     - [x] The app stores the available models for each provider
 - [x] Developers can configure the LLM provider and model name to use for each agent
-- [ ] The `gemma4:e2b` model is started along with the dev server and used as a fallback when no LLMProvider is configured
+- [x] A local LLM is started along with the dev server and used as a fallback when no LLM provider is configured for the agent.
+    Default path so development can run without pointing agents at an external or admin-configured provider.
 
 ## Milestone 1 - RAG in a box
 

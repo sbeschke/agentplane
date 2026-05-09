@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
-#MISE description="Initialise the development environment"
+#MISE description="Initialise the development environment (tools, deps, DB migrations, prek hooks, local LLM weights)"
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+mise install
 uv sync
-prek install
+uv run --env-file .env python manage.py migrate
+prek install --prepare-hooks
+bash scripts/download_local_llm.sh

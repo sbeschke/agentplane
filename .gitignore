@@ -1,6 +1,9 @@
 db.sqlite3
 .nanocoder/
 
+# Local LLM weights (see scripts/download_local_llm.sh)
+models/*.gguf
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

@@ -10,10 +10,19 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# OpenAI-compatible HTTP APIs (local llama-server, LiteLLM, vLLM, cloud OpenAI, etc.)
+OPENAI_COMPAT_API_KEY = os.environ.get("OPENAI_API_KEY", "sk-local-provider")
+
+# Default local inference (llama-server); overridden via env for tests / custom ports
+LOCAL_LLM_BASE_URL = os.environ.get("LOCAL_LLM_BASE_URL", "http://127.0.0.1:8765/v1")
+# Must match llama-server --alias (or the GGUF basename if you omit --alias); see docs/user_stories.md
+LOCAL_LLM_MODEL = os.environ.get("LOCAL_LLM_MODEL", "gemma-2-2b-it")
 
 
 # Quick-start development settings - unsuitable for production

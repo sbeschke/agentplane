@@ -17,8 +17,10 @@ Install `mise` to make the commands shown in this section available.
 Run this command before starting development:
 
 ```
-mise run init  # Set up for development (install dependencies and install pre-commit hooks)
+mise run init  # Toolchains (including llama.cpp), Python deps, DB migrations, prek git hooks, local GGUF weights
 ```
+
+When you run **`mise run dev`**, the stack starts **llama-server** (CPU, OpenAI-compatible API on port **8765**) together with the web server and background worker. Configure `LOCAL_LLM_*` in `.env` if you need different host, port, or model id.
 
 ### Development Commands
 

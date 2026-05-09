@@ -1,5 +1,6 @@
 from unittest.mock import patch, MagicMock
-from django.test import TestCase
+from django.conf import settings
+from django.test import TestCase, override_settings
 from agents.models import Agent, Conversation, LLMProvider
 from agents.services import discover_models, chat
 
@@ -7,7 +8,7 @@ from agents.services import discover_models, chat
 class DiscoverModelsTest(TestCase):
     def setUp(self):
         self.provider = LLMProvider.objects.create(
-            name="Test Ollama",
+            name="Test provider",
             url="http://localhost:11434/v1",
             available_models=[],
         )
@@ -43,7 +44,7 @@ class DiscoverModelsTest(TestCase):
         """Test that discover_models gracefully handles connection errors."""
         # Create a new provider for this test
         provider = LLMProvider.objects.create(
-            name="Failing Ollama",
+            name="Failing provider",
             url="http://invalid:11434/v1",
             available_models=[],
         )
@@ -75,6 +76,7 @@ class DiscoverModelsTest(TestCase):
         mock_openai_class.assert_called_once()
         call_kwargs = mock_openai_class.call_args.kwargs
         self.assertEqual(call_kwargs["base_url"], "http://localhost:11434/v1")
+        self.assertEqual(call_kwargs["api_key"], settings.OPENAI_COMPAT_API_KEY)
 
 
 class ChatTest(TestCase):
@@ -88,14 +90,14 @@ class ChatTest(TestCase):
 
     @patch("agents.services.Agent")
     @patch("agents.services.OpenAIChatModel")
-    @patch("agents.services.OllamaProvider")
+    @patch("agents.services.OpenAIProvider")
     def test_chat_with_provider_and_model(
         self, mock_provider_class, mock_model_class, mock_agent_class
     ):
         """Test that chat uses the provider and model when available."""
         # Set up the agent with provider and model
         self.provider = LLMProvider.objects.create(
-            name="Test Ollama",
+            name="Test provider",
             url="http://localhost:11434/v1",
             available_models=["llama2", "mistral"],
         )
@@ -124,8 +126,11 @@ class ChatTest(TestCase):
         # Call chat
         chat(self.conversation, "Hello")
 
-        # Verify OllamaProvider was created with correct URL
-        mock_provider_class.assert_called_once_with(base_url=self.provider.url)
+        # Verify OpenAI-compatible provider was created with correct URL
+        mock_provider_class.assert_called_once_with(
+            base_url=self.provider.url,
+            api_key=settings.OPENAI_COMPAT_API_KEY,
+        )
 
         # Verify OpenAIChatModel was created with correct model and provider
         mock_model_class.assert_called_once_with(
@@ -144,10 +149,22 @@ class ChatTest(TestCase):
         self.conversation.refresh_from_db()
         self.assertEqual(len(self.conversation.history), 2)
 
+    @override_settings(
+        LOCAL_LLM_BASE_URL="http://127.0.0.1:9/v1",
+        LOCAL_LLM_MODEL="fallback-model",
+    )
+    @patch("agents.services.OpenAIProvider")
+    @patch("agents.services.OpenAIChatModel")
     @patch("agents.services.Agent")
-    def test_chat_without_provider_uses_fallback(self, mock_agent_class):
-        """Test that chat falls back to default model when no provider is set."""
-        # Agent has no provider set
+    def test_chat_without_provider_uses_fallback(
+        self, mock_agent_class, mock_model_class, mock_provider_class
+    ):
+        """Test that chat falls back to bundled local llama-server settings."""
+        mock_provider_instance = MagicMock()
+        mock_provider_class.return_value = mock_provider_instance
+        mock_model_instance = MagicMock()
+        mock_model_class.return_value = mock_model_instance
+
         mock_agent_instance = MagicMock()
         mock_agent_class.return_value = mock_agent_instance
 
@@ -155,14 +172,18 @@ class ChatTest(TestCase):
         mock_result.all_messages.return_value = []
         mock_agent_instance.run_sync.return_value = mock_result
 
-        # Call chat
         chat(self.conversation, "Hello")
 
-        # Verify Agent was created with fallback model
+        mock_provider_class.assert_called_once_with(
+            base_url="http://127.0.0.1:9/v1",
+            api_key=settings.OPENAI_COMPAT_API_KEY,
+        )
+        mock_model_class.assert_called_once_with(
+            "fallback-model", provider=mock_provider_instance
+        )
         mock_agent_class.assert_called_once()
-        call_args, call_kwargs = mock_agent_class.call_args
-        self.assertEqual(call_args[0], "mistral:mistral-small-latest")
-        self.assertEqual(call_kwargs["instructions"], self.agent.instructions)
+        agent_call_kwargs = mock_agent_class.call_args.kwargs
+        self.assertEqual(agent_call_kwargs["instructions"], self.agent.instructions)
 
     @patch("agents.services.Agent")
     def test_chat_handles_error_gracefully(self, mock_agent_class):
@@ -179,14 +200,14 @@ class ChatTest(TestCase):
 
     @patch("agents.services.Agent")
     @patch("agents.services.OpenAIChatModel")
-    @patch("agents.services.OllamaProvider")
+    @patch("agents.services.OpenAIProvider")
     def test_chat_updates_conversation_history(
         self, mock_provider_class, mock_model_class, mock_agent_class
     ):
         """Test that chat properly updates conversation history."""
         # Set up the agent with provider and model
         self.provider = LLMProvider.objects.create(
-            name="Test Ollama",
+            name="Test provider",
             url="http://localhost:11434/v1",
             available_models=["llama2"],
         )

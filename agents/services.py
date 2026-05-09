@@ -1,12 +1,19 @@
 import django_tasks
+from django.conf import settings
 from django.utils import timezone
-import os
 import openai
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.ollama import OllamaProvider
+from pydantic_ai.providers.openai import OpenAIProvider
 
 from agents import models
+
+
+def _openai_provider(base_url: str) -> OpenAIProvider:
+    return OpenAIProvider(
+        base_url=base_url,
+        api_key=settings.OPENAI_COMPAT_API_KEY,
+    )
 
 
 def discover_models(provider: models.LLMProvider) -> list[str]:
@@ -15,7 +22,7 @@ def discover_models(provider: models.LLMProvider) -> list[str]:
         # Use a valid-looking key format for local providers
         client = openai.OpenAI(
             base_url=provider.url,
-            api_key=os.environ.get("OPENAI_API_KEY", "sk-local-provider"),
+            api_key=settings.OPENAI_COMPAT_API_KEY,
         )
         models = client.models.list()
         model_names = [model.id for model in models.data]
@@ -42,16 +49,18 @@ def chat(conversation: models.Conversation, message: str) -> None:
         agent = conversation.agent
 
         if agent.llm_provider and agent.model_name:
-            provider = OllamaProvider(base_url=agent.llm_provider.url)
-            model = OpenAIChatModel(agent.model_name, provider=provider)
             pydantic_agent = Agent(
-                model,
+                OpenAIChatModel(
+                    agent.model_name, provider=_openai_provider(agent.llm_provider.url)
+                ),
                 instructions=agent.instructions,
             )
         else:
-            # Fallback to hardcoded for backward compatibility
             pydantic_agent = Agent(
-                "mistral:mistral-small-latest",
+                OpenAIChatModel(
+                    settings.LOCAL_LLM_MODEL,
+                    provider=_openai_provider(settings.LOCAL_LLM_BASE_URL),
+                ),
                 instructions=agent.instructions,
             )
 

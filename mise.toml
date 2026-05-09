@@ -8,5 +8,6 @@ format = "prek run --all-files"
 [tools]
 prek = "latest"
 process-compose = "latest"
+"llama.cpp" = { version = "9090", version_prefix = "b" }
 ruff = "latest"
 uv = "latest"

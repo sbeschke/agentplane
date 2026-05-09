@@ -1,9 +1,25 @@
 version: "0.5"
 
 processes:
+  local-llm:
+    command: >-
+      mise x -- llama-server
+      -m models/gemma-2-2b-it-Q4_K_M.gguf
+      --host 127.0.0.1
+      --port 8765
+      -a gemma-2-2b-it
+    working_dir: "."
+    availability:
+      restart: on_failure
+      backoff_seconds: 2
+      max_restarts: 3
+
   web:
     command: "uv run --env-file .env python manage.py runserver"
-    working_dir: "/home/sebastian/projects/agentplane"
+    working_dir: "."
+    depends_on:
+      local-llm:
+        condition: process_started
     availability:
       restart: on_failure
       backoff_seconds: 2
@@ -11,7 +27,10 @@ processes:
 
   worker:
     command: "uv run --env-file .env python manage.py db_worker"
-    working_dir: "/home/sebastian/projects/agentplane"
+    working_dir: "."
+    depends_on:
+      local-llm:
+        condition: process_started
     availability:
       restart: on_failure
       backoff_seconds: 2
