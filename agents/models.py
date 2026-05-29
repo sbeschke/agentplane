@@ -25,6 +25,17 @@ class Agent(models.Model):
         help_text="Model name to use (must be available in the selected provider)",
     )
 
+    # Search configuration
+    search_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable document search tool for this agent",
+    )
+    allowed_collections = models.ManyToManyField(
+        "documents.Collection",
+        blank=True,
+        help_text="Collections this agent can search",
+    )
+
     def __str__(self):
         return self.name
 

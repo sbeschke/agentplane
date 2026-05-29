@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     "django_tasks",
     "django_tasks_db",
     "agents.apps.AgentsConfig",
@@ -148,3 +149,7 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+
+# Media files (Uploaded documents)
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"

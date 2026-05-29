@@ -30,16 +30,16 @@ The goal of this milestone is to provide minimal conversational AI capabilitiesâ
 The vision of this milestone is to provide an all-in-one solution for setting up a RAG-based agent.
 Users can set up document collections (via Django Admin for now), which are indexed and made available to agents through tool calls. **End-user collection management in the web app is out of scope** for this milestone; Admin-only is acceptable.
 
-- [ ] Developers can create document collections through Django Admin
+- [x] Developers can create document collections through Django Admin
     - [x] A PostgreSQL instance with the pgvector extension is started along with the dev server
-    - [ ] The app uses that database for Django data and for vector embeddings (pgvector)
+    - [x] The app uses that database for Django data and for vector embeddings (pgvector)
     - [x] Collections can be created through Django Admin
-- [ ] Developers can list collections and retrieve collection details through the REST API
-- [ ] Developers can add documents to a collection through a REST API
-- [ ] Documents can be uploaded through Django Admin
-    - [ ] A PDF document can be uploaded to a collection via POST request
-    - [ ] The document content gets stored inside a Document object that is owned by the collection
-- [ ] Newly uploaded documents get indexed automatically
-    - [ ] After a document has been uploaded, a background job is started up that chunks the document and then indexes each chunk
-- [ ] Each agent can be configured with document search: whether the search tool is enabled and which collections that agent may query
-- [ ] When document search is enabled for an agent, the agent has access to a tool that searches only the collections configured for that agent
+- [x] Developers can list collections and retrieve collection details through the REST API
+- [x] Developers can add documents to a collection through a REST API
+- [x] Documents can be uploaded through Django Admin
+    - [x] A PDF document can be uploaded to a collection via POST request
+    - [x] The document content gets stored inside a Document object that is owned by the collection
+- [x] Newly uploaded documents get indexed automatically
+    - [x] After a document has been uploaded, a background job is started up that chunks the document and then indexes each chunk
+- [x] Each agent can be configured with document search: whether the search tool is enabled and which collections that agent may query
+- [x] When document search is enabled for an agent, the agent has access to a tool that searches only the collections configured for that agent

@@ -4,20 +4,37 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('agents', '0004_rename_events_conversation_history'),
+        ("agents", "0004_rename_events_conversation_history"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='LLMProvider',
+            name="LLMProvider",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=255)),
-                ('url', models.URLField(help_text='Base URL for the LLM provider (e.g., http://localhost:11434/v1 for Ollama)')),
-                ('available_models', models.JSONField(default=list, help_text='List of available model names')),
-                ('last_discovered', models.DateTimeField(blank=True, null=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=255)),
+                (
+                    "url",
+                    models.URLField(
+                        help_text="Base URL for the LLM provider (e.g., http://localhost:11434/v1 for Ollama)"
+                    ),
+                ),
+                (
+                    "available_models",
+                    models.JSONField(
+                        default=list, help_text="List of available model names"
+                    ),
+                ),
+                ("last_discovered", models.DateTimeField(blank=True, null=True)),
             ],
         ),
     ]

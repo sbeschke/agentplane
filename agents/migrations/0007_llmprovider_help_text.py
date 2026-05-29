@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('agents', '0006_agent_llm_provider_agent_model_name'),
+        ("agents", "0006_agent_llm_provider_agent_model_name"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='llmprovider',
-            name='url',
-            field=models.URLField(help_text='Base URL for an OpenAI-compatible HTTP API (include /v1), e.g. http://127.0.0.1:8765/v1'),
+            model_name="llmprovider",
+            name="url",
+            field=models.URLField(
+                help_text="Base URL for an OpenAI-compatible HTTP API (include /v1), e.g. http://127.0.0.1:8765/v1"
+            ),
         ),
     ]

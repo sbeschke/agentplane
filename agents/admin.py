@@ -6,18 +6,36 @@ from .services import discover_models
 
 @admin.register(Agent)
 class AgentAdmin(admin.ModelAdmin):
-    list_display = ("name", "llm_provider", "model_name", "created_at", "updated_at")
-    list_filter = ("created_at", "updated_at", "llm_provider")
+    list_display = (
+        "name",
+        "llm_provider",
+        "model_name",
+        "search_enabled",
+        "collection_count",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = ("created_at", "updated_at", "llm_provider", "search_enabled")
     search_fields = ("name", "description")
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at", "collection_count")
+    filter_horizontal = ("allowed_collections",)
     fieldsets = (
         ("Basic Information", {"fields": ("name", "slug", "description")}),
         ("Configuration", {"fields": ("instructions", "llm_provider", "model_name")}),
+        ("Document Search", {"fields": ("search_enabled", "allowed_collections")}),
         (
             "Metadata",
-            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+            {
+                "fields": ("created_at", "updated_at", "collection_count"),
+                "classes": ("collapse",),
+            },
         ),
     )
+
+    def collection_count(self, obj):
+        return obj.allowed_collections.count()
+
+    collection_count.short_description = "Allowed Collections"
 
 
 @admin.register(LLMProvider)

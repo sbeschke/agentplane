@@ -17,7 +17,7 @@ class ConversationOut(Schema):
     history: list[dict]
 
 
-api = NinjaAPI()
+api = NinjaAPI(version="1.0.0", urls_namespace="agents_api")
 
 
 @api.post("/agents/{agent_slug}/conversation/")

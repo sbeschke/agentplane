@@ -9,7 +9,6 @@ def enable_pgvector(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("documents", "0001_initial"),
     ]
