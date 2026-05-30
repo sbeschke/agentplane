@@ -1,19 +1,24 @@
-# Agent Plane - Project Scope
+# mops, a framework for model ops
 
-## Overview
-Agent Plane is an application for creating and running AI agents. Users can create agents by specifying a system prompt and set of tools that the agent has access to. The platform provides a REST API through which each agent can be called with a prompt.
+mops is an easy, open and local-first programming framework for hosting your agents and LLM workflows on your own infrastructure. It helps Python developers build production agent systems without cloud dependencies.
 
-**Local-first development** is a core part of the vision: agents should run smoothly against local models with minimal setup, alongside optional cloud or third-party providers.
+You code your agents using PydanticAI, and mops provides API endpoints, session management, and more. It integrates with LLM servers or it can help you spin up an LLM with one command - all on your own infrastructure. No need to pay for cloud-based SaaS, no vendor lock-in, minimal boilerplate.
 
-## Core Capabilities
-- **REST API for agents**: Programmatic access to agent functionality
-- **LLM provider configuration**: Support for both local LLM execution and third-party providers via API keys
-- **Built-in RAG capability**: The app allows users to create document collections which can be made available to agents as a knowledge source.
+mops is batteries-included and provides support for the most essential building blocks of AI systems, such as prompt management, a RAG store, MCP support, and chat session management. However, mops is also extensible and allows you to define custom tools and workflows as you go along.
 
-## User Interaction
-- **Web interface**: For setting up and managing agents and related configuration
-- **REST API integration**: Primary method for integrating agents into larger systems
+## Developer Experience
 
-## Future (out of scope for now)
-- **Observability**: Tracing and monitoring of agent runs
-- **Prompt versioning**: Track and manage different versions of agent prompts
+mops is the FastAPI of agentic AI. Developers use mops by starting a new project and importing `mopsai` as a library. Through function decorators, developers can designate PydanticAI agents that can be served over the network.
+
+Like FastAPI or Django, developers can start a dev server using a simple command, or host a production-grade API server using gunicorn.
+
+## Agent API
+
+An agent session is created by sending a query to a JSON API endpoint. The agent's response can be observed in two distinct ways:
+
+- Conversational: Returns all intermediate outputs by the agent including tool calls and results, and allows the user to add to the conversation by posting a response.
+- Result: Waits for the agent to call a `Result` tool and returns only the argument passed by the agent. This allows developers to implement complex end-to-end tasks while hiding the details of the agent workflow from users.
+
+## Small AI and Model Ops
+
+Ultimately, mops will support the whole lifecycle of Small AI systems - including tracing, evaluation, collection of user feedback, and finetuning. By combining traces collected from users with feedback signals from evals, the framework should allow developers to set up regular training runs and serve models that are tuned to their specific workflows.
