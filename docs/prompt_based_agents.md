@@ -7,7 +7,6 @@ After completing the django-mops-agents migration, evolve the architecture to:
 2. Enable pure PydanticAI agents defined in code
 3. Auto-generate endpoints from agent functions
 4. Allow runtime prompt customization via DB
-5. Use django-reversion for prompt history and versioning
 
 ---
 
@@ -275,43 +274,6 @@ for slug in get_registered_agents():
 
 ---
 
-## Prompt Versioning with django-reversion
-
-### How It Works
-
-- Every save to a `Prompt` creates a new revision
-- Users can revert to any previous version via admin UI or programmatically
-- All history is preserved - reverting creates a new version that matches the old one
-
-### Usage
-
-```python
-import reversion
-from reversion.models import Version
-from mops.models import Prompt
-
-# Get a prompt
-prompt = Prompt.objects.get(slug="weather-bot")
-
-# Get all versions of a prompt
-versions = Version.objects.get_for_object(prompt)
-
-# Revert to a specific version
-reversion.revert(versions[2])  # Restore 3rd version
-
-# Get latest version (helper method)
-prompt = Prompt.get_latest("weather-bot")
-```
-
-### Admin Integration
-
-With django-reversion installed, the Prompt admin automatically includes:
-- A "History" button in the sidebar
-- List of all versions with timestamps and user
-- "Revert" button to restore any version
-
----
-
 ## Migration Path Summary
 
 ```
@@ -321,15 +283,12 @@ Agent model (code + config)  →  Prompt model (config only)  →  Prompt model
 Agent class (Django)         →  Agent class (mops)          →  Pure PydanticAI
 Manual URL definition        →  Merged into mops/          →  Auto-generated
 Hardcoded agents             →  DB-configurable            →  Code-defined + DB override
-No versioning                →  django-reversion           →  Full history + revert
 ```
 
 ---
 
 ## Dependencies
 
-### Required (new)
-- django-reversion >= 5.0
 
 ### Existing (carried forward)
 - Django >= 6.0
