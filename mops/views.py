@@ -26,7 +26,7 @@ def conversation_list(request):
         print(f"Creating conversation for agent slug: {agent_slug}")
         agent = get_object_or_404(Agent, slug=agent_slug)
         conversation = agent.conversations.create()
-        return redirect("conversation_detail", conversation_id=conversation.id)
+        return redirect("mops:conversation_detail", conversation_id=conversation.id)
     return HttpResponseBadRequest("Invalid method")
 
 
