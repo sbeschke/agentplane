@@ -1,39 +1,248 @@
-# Agent Plane
+# django-mops-agents
 
-Agent Plane is a Django application for **creating and running** AI agents. You define each agent with instructions (a system prompt) and the tools it may use, then call it from a **REST API** or through the bundled web UI.
+A Django app for hosting AI agents and LLM workflows. Build conversational agents with RAG (Retrieval-Augmented Generation) support, powered by local or cloud LLM providers.
 
-**Local-first** is a core goal: run against self-hosted models with minimal friction, while still supporting third-party LLM providers when you need them. Document **collections** (RAG) let you attach indexed knowledge that agents can search, configured per agent.
+**Local-first**: Designed to work seamlessly with self-hosted models (llama-server, vLLM, etc.) while also supporting cloud providers like OpenAI.
 
-For full scope and roadmap detail, see [docs/vision.md](docs/vision.md).
+## Features
 
-## Setup
+- **Agent Management**: Create and manage AI agents with custom instructions
+- **Conversations**: Persistent chat history with agents
+- **Document Collections**: Upload and index PDF documents for RAG
+- **REST API**: Full API support via Django Ninja
+- **Web UI**: Built-in templates for agent interaction
+- **Background Tasks**: Async document processing with django-tasks
+- **Optional Vector Search**: PostgreSQL + pgvector integration (optional)
 
-We use [mise](https://mise.jdx.dev/) to set up tools.
+## Quick Start
 
-Install `mise` to make the commands shown in this section available.
+### Installation
 
-### Initialisation
-
-Run this command before starting development:
-
-```
-mise run init  # Tools, Python deps, DB migrations, prek hooks, llama-server runtime (GPU-capable where supported), GGUF weights
-```
-
-When you run **`mise run dev`**, the stack starts **PostgreSQL** with the **pgvector** extension (via Docker; default host port **55432**, see `scripts/run-dev-postgres.sh` and **`AGENTPLANE_PG_PORT`**), plus **llama-server** (OpenAI-compatible API on port **8765**: **GPU** on typical Linux with Vulkan drivers or Apple Silicon via Metal; falls back to CPU when no GPU backend is available), the Django web server, and the background worker. Install **Docker** for the Postgres service. Set **`DATABASE_URL`** in `.env` (see `.env.sample`) to use Postgres instead of SQLite; if it is unset, Django keeps using **`db.sqlite3`** (fine for lightweight tests).
-
-For the first Postgres-backed setup, bring the stack up (`mise run dev`) before **`mise run init`** migrations, **or** start only Postgres temporarily, **`mise run migrate`**, then start the rest—so Postgres is reachable when migrations run with **`DATABASE_URL`** set.
-
-### Development Commands
-
-```
-mise run dev     # start development server
-mise run test    # run unittests
-mise run mmm     # make migrations and migrate
+```bash
+pip install django-mops-agents
 ```
 
-### Committing
+Or from source:
+
+```bash
+# Clone the repository
+git clone https://github.com/your-org/django-mops-agents.git
+cd django-mops-agents
+
+# Install in development mode
+uv sync --extra all
+```
+
+### Configuration
+
+Add to your Django project's `INSTALLED_APPS`:
+
+```python
+# settings.py
+INSTALLED_APPS = [
+    ...
+    "mops.apps.MopsConfig",
+]
+```
+
+Include the URLs in your project's `urls.py`:
+
+```python
+# urls.py
+from django.urls import include, path
+
+urlpatterns = [
+    path("mops/", include("mops.urls", namespace="mops")),
+]
+```
+
+### Required Settings
+
+```python
+# settings.py
+
+# Database (SQLite is fine for development)
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+
+# Background tasks (required)
+TASKS = {
+    "default": {"BACKEND": "django_tasks_db.DatabaseBackend", "QUEUES": ["default"]}
+}
+
+# Media files (for document uploads)
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+```
+
+### LLM Configuration
+
+```python
+# Local LLM (llama-server compatible)
+MOPS_LOCAL_LLM_BASE_URL = "http://127.0.0.1:8765/v1"  # Default
+MOPS_LOCAL_LLM_MODEL = "gemma-2-2b-it"  # Default
+
+# OpenAI-compatible API key (used for authentication)
+MOPS_OPENAI_API_KEY = "sk-local-provider"  # Default for local providers
+
+# Optional: Set a default agent
+MOPS_DEFAULT_AGENT = "my-agent"  # Optional
+```
+
+### Run Migrations
+
+```bash
+python manage.py migrate
+```
+
+### Create an Agent
+
+```python
+from mops.models import Agent
+
+Agent.objects.create(
+    name="My Assistant",
+    slug="my-assistant",
+    instructions="You are a helpful AI assistant. Answer questions accurately.",
+    model_name="gemma-2-2b-it",
+)
+```
+
+## Usage
+
+### Web Interface
+
+Start your development server:
+
+```bash
+python manage.py runserver
+```
+
+Visit:
+- `http://127.0.0.1:8000/mops/` - List all agents
+- `http://127.0.0.1:8000/mops/agents/{slug}/` - Agent detail page
+- `http://127.0.0.1:8000/mops/conversations/` - Conversation list
+
+### REST API
+
+#### Start a Conversation
+
+```bash
+POST /mops/api/agents/{agent_slug}/conversation/
+```
+
+#### Send a Message
+
+```bash
+POST /mops/api/agents/{agent_slug}/conversation/{conversation_id}/
+Content-Type: application/json
+
+{
+  "message": "Hello, how are you?"
+}
+```
+
+#### Get Conversation History
+
+```bash
+GET /mops/api/agents/{agent_slug}/conversation/{conversation_id}/
+```
+
+#### Document Collections
+
+```bash
+GET /mops/api/collections/                    # List collections
+POST /mops/api/collections/{slug}/documents/  # Upload PDF document
+GET /mops/api/collections/{slug}/documents/  # List documents
+```
+
+## Configuration Reference
+
+### Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `MOPS_LOCAL_LLM_BASE_URL` | `http://127.0.0.1:8765/v1` | Base URL for local LLM API |
+| `MOPS_LOCAL_LLM_MODEL` | `gemma-2-2b-it` | Default model name |
+| `MOPS_OPENAI_API_KEY` | `sk-local-provider` | API key for OpenAI-compatible endpoints |
+| `MOPS_DEFAULT_AGENT` | `None` | Default agent slug (optional) |
+| `MOPS_URL_PREFIX` | `mops/` | URL prefix for all mops endpoints |
+
+### Optional Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `pgvector` | PostgreSQL vector search for embeddings |
+| `psycopg[binary]` | PostgreSQL database adapter |
+| `reportlab` | PDF text extraction (for tests) |
+| `sentence-transformers` | Embedding model for vector search |
+
+## Project Structure
 
 ```
-mise run format  # lint and format
+mops/
+├── __init__.py
+├── models.py              # Agent, Conversation, Collection, Document, etc.
+├── services.py            # Chat, search, document processing
+├── api.py                 # REST API endpoints (Django Ninja)
+├── urls.py                # URL routing
+├── apps.py                # App configuration
+├── admin.py               # Django admin registration
+├── signals.py             # Signal handlers
+├── conf/
+│   └── __init__.py        # Configuration and settings
+├── management/
+│   └── commands/
+│       └── mops_init.py    # Initialization command
+├── templates/
+│   └── mops/              # Web UI templates
+└── migrations/           # Database migrations
 ```
+
+## Running Tests
+
+```bash
+# Run all tests
+python manage.py test mops.tests
+
+# Run with SQLite (avoids PostgreSQL dependency)
+DATABASE_URL="sqlite:///test.db" python manage.py test mops.tests
+```
+
+## Development
+
+This project uses:
+- **mise** for environment management
+- **uv** for Python dependencies
+
+### Setup
+
+```bash
+# Install mise and tools
+mise install
+
+# Install Python dependencies
+mise x -- uv sync --extra all
+
+# Run migrations
+mise x -- uv run python manage.py migrate
+
+# Run tests
+mise x -- uv run python manage.py test mops.tests
+```
+
+### Commands
+
+```bash
+mise run dev      # Start development server
+mise run format   # Format code and run linter
+mise run test     # Run all tests
+```
+
+## License
+
+MIT
