@@ -19,3 +19,8 @@ dependencies = [
 postgresql = ["psycopg[binary]>=3.2"]
 vector-search = ["pgvector>=0.3.0", "psycopg[binary]>=3.2"]
 all = ["psycopg[binary]>=3.2", "pgvector>=0.3.0"]
+
+[dependency-groups]
+dev = [
+    "reportlab>=4.5.1",
+]
