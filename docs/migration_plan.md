@@ -88,6 +88,9 @@ README.md                  # Installation and usage
 - 4 test errors due to missing sentence-transformers/torch libraries in test environment. These are expected and don't affect functionality.
 - File upload test (`test_upload_document`) was fixed during Phase 2 and now passes.
 
+### Cleanup Note
+- Legacy `agents/` and `documents/` directories were removed after migration to `mops/`
+
 ---
 
 ## Phase 2: Decoupling & Configuration (Week 1-2)
