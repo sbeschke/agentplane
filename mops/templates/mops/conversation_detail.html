@@ -6,7 +6,7 @@
     {% include 'mops/partials/conversation_history.html' %}
 
     <form id="message-form"
-        hx-post="{% url 'conversation_detail' conversation.id %}"
+        hx-post="{% url 'mops:conversation_detail' conversation.id %}"
         hx-swap="none"
         hx-on::after-request="this.reset()"
         style="flex-shrink: 0;">
@@ -17,7 +17,7 @@
                     id="message"
                     name="message"
                     hx-trigger="keydown[key==='Enter'&&!shiftKey]"
-                    hx-post="{% url 'conversation_detail' conversation.id %}"
+                    hx-post="{% url 'mops:conversation_detail' conversation.id %}"
                     hx-swap="none"
                     hx-on:keydown="(event.keyCode===13&&!event.shiftKey)?event.preventDefault():null"
                     class="textarea"

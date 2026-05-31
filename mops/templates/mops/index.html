@@ -2,12 +2,12 @@
 {% block content %}
     <h1 class="title">Available Agents</h1>
     {% for agent in agents %}
-        <h2 class="subtitle"><a href="{% url 'agent_detail' agent.slug %}">{{ agent.name }}</a></h2>
+        <h2 class="subtitle"><a href="{% url 'mops:agent_detail' agent.slug %}">{{ agent.name }}</a></h2>
         <p>{{ agent.description }}</p>
         <h3>Conversations</h3>
         <ul>
             {% for conversation in agent.conversations.all %}
-                <li><a href="{% url 'conversation_detail' conversation.id %}">Conversation started at {{ conversation.created_at }}</a></li>
+                <li><a href="{% url 'mops:conversation_detail' conversation.id %}">Conversation started at {{ conversation.created_at }}</a></li>
             {% empty %}
                 <li>No conversations yet.</li>
             {% endfor %}

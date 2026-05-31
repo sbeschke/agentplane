@@ -1,5 +1,5 @@
 <div id="chat-history" style="flex-grow: 1; overflow-y: auto; margin-bottom: 1rem;"
-    hx-get="{% url 'conversation_history' conversation.id %}"
+    hx-get="{% url 'mops:conversation_history' conversation.id %}"
     hx-swap="innerHTML scroll:bottom"
     hx-trigger="every 1s">
     {% for message in conversation.history %}
