@@ -94,27 +94,27 @@ README.md                  # Installation and usage
 ## Phase 2: Decoupling & Configuration (Week 1-2)
 
 ### Tasks
-- [ ] Make pgvector optional with graceful fallback
-  - [ ] Add `try/except` import for pgvector in models
-  - [ ] Use `models.JSONField` as fallback for `VectorField`
-  - [ ] Add runtime check for pgvector availability
-  - [ ] Document pgvector as optional dependency
-- [ ] Create configurable settings in `mops/conf/__init__.py`
-  - [ ] `MOPS_LOCAL_LLM_BASE_URL` (default: `http://127.0.0.1:8765/v1`)
-  - [ ] `MOPS_LOCAL_LLM_MODEL` (default: `gemma-2-2b-it`)
-  - [ ] `MOPS_OPENAI_API_KEY` (default: `sk-local-provider`)
-  - [ ] `MOPS_DEFAULT_AGENT` (optional)
-- [ ] Update all hardcoded references to use configurable settings
-- [ ] Add `getattr(settings, ...)` fallbacks throughout
-- [ ] Ensure app works without `agentplane/` project settings
-- [ ] Port and run tests to verify configuration changes work correctly
-- [ ] Run full test suite to ensure no regressions
+- [x] Make pgvector optional with graceful fallback
+  - [x] Add `try/except` import for pgvector in models
+  - [x] Use `models.JSONField` as fallback for `VectorField`
+  - [x] Add runtime check for pgvector availability
+  - [x] Document pgvector as optional dependency
+- [x] Create configurable settings in `mops/conf/__init__.py`
+  - [x] `MOPS_LOCAL_LLM_BASE_URL` (default: `http://127.0.0.1:8765/v1`)
+  - [x] `MOPS_LOCAL_LLM_MODEL` (default: `gemma-2-2b-it`)
+  - [x] `MOPS_OPENAI_API_KEY` (default: `sk-local-provider`)
+  - [x] `MOPS_DEFAULT_AGENT` (optional)
+- [x] Update all hardcoded references to use configurable settings
+- [x] Add `getattr(settings, ...)` fallbacks throughout
+- [x] Ensure app works without `agentplane/` project settings
+- [x] Port and run tests to verify configuration changes work correctly
+- [x] Run full test suite to ensure no regressions (48 tests pass)
 
 ### Deliverables
-- Package works when installed in any Django project as `mops`
-- Settings are configurable via Django settings
-- pgvector is truly optional
-- All tests pass
+- [x] Package works when installed in any Django project as `mops`
+- [x] Settings are configurable via Django settings
+- [x] pgvector is truly optional
+- [x] All tests pass
 
 ---
 

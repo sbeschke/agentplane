@@ -10,8 +10,47 @@ from django.db import models
 
 
 # =============================================================================
+# pgvector Support - Optional Dependency
+# =============================================================================
+
+
+def _pgvector_available() -> bool:
+    """Check if pgvector is installed and available."""
+    import importlib.util
+
+    return importlib.util.find_spec("pgvector") is not None
+
+
+def _using_postgresql() -> bool:
+    """Check if the database backend is PostgreSQL."""
+    from django.db import connection
+
+    return connection.vendor == "postgresql"
+
+
+# Define VectorField based on pgvector availability and database backend
+# Only use ArrayField if both pgvector is installed AND we're using PostgreSQL
+if _pgvector_available() and _using_postgresql():
+    from django.contrib.postgres.fields import ArrayField
+
+    # Create a proper VectorField class that wraps ArrayField
+    class VectorField(ArrayField):
+        """A vector field for storing embeddings when pgvector is available."""
+
+        def __init__(self, *args, **kwargs):
+            # Set default size for embeddings (384 for all-MiniLM-L6-v2)
+            kwargs.setdefault("size", 384)
+            super().__init__(models.FloatField(), *args, **kwargs)
+else:
+    # Fallback to JSONField for storing vector embeddings
+    # This is used when pgvector is not installed OR when not using PostgreSQL
+    VectorField = models.JSONField
+
+
+# =============================================================================
 # Agent Models (from agents/models.py)
 # =============================================================================
+
 
 class Agent(models.Model):
     name = models.CharField(max_length=255)
@@ -54,15 +93,20 @@ class Agent(models.Model):
         if self.llm_provider and self.model_name:
             if self.model_name not in self.llm_provider.available_models:
                 raise ValidationError(
-                    f"Model '{self.model_name}' is not available in provider '{self.llm_provider.name}'. "
+                    f"Model '{self.model_name}' is not available in provider "
+                    f"'{self.llm_provider.name}'. "
                     f"Available models: {', '.join(self.llm_provider.available_models)}"
                 )
 
 
 class Conversation(models.Model):
-    """Model to store conversations with agents. Each conversation is linked to a specific agent and contains a list of events (messages, responses, etc.).
+    """Model to store conversations with agents.
 
-    Events are stored in a JSONField as a list of dictionaries, where each dictionary represents an event. The format follows the PydanticAI format.
+    Each conversation is linked to a specific agent and contains a list of events
+    (messages, responses, etc.).
+
+    Events are stored in a JSONField as a list of dictionaries, where each dictionary
+    represents an event. The format follows the PydanticAI format.
     """
 
     agent = models.ForeignKey(
@@ -90,7 +134,8 @@ class Conversation(models.Model):
 class LLMProvider(models.Model):
     name = models.CharField(max_length=255)
     url = models.URLField(
-        help_text="Base URL for an OpenAI-compatible HTTP API (include /v1), e.g. http://127.0.0.1:8765/v1"
+        help_text="Base URL for an OpenAI-compatible HTTP API (include /v1), "
+        "e.g. http://127.0.0.1:8765/v1"
     )
     available_models = models.JSONField(
         default=list, help_text="List of available model names"
@@ -104,6 +149,7 @@ class LLMProvider(models.Model):
 # =============================================================================
 # Document Models (from documents/models.py)
 # =============================================================================
+
 
 class Collection(models.Model):
     """A set of documents to be indexed and searched (RAG)."""
@@ -182,7 +228,8 @@ class DocumentChunk(models.Model):
     )
     content = models.TextField()
     chunk_index = models.PositiveIntegerField()
-    embedding = models.JSONField(default=list, null=True, blank=True)
+    # Use VectorField if pgvector is available, otherwise fall back to JSONField
+    embedding = VectorField(default=list, null=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
