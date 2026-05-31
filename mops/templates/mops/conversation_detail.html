@@ -1,0 +1,33 @@
+{% extends 'mops/base.html' %}
+{% block content %}
+<div style="height: calc(100vh - 80px); display: flex; flex-direction: column;">
+    <h1 class="title">Conversation with {{ conversation.agent.name }}</h1>
+
+    {% include 'mops/partials/conversation_history.html' %}
+
+    <form id="message-form"
+        hx-post="{% url 'conversation_detail' conversation.id %}"
+        hx-swap="none"
+        hx-on::after-request="this.reset()"
+        style="flex-shrink: 0;">
+        {% csrf_token %}
+        <fieldset>
+            <div class="container" style="display: flex; flex-direction: row;">
+                <textarea
+                    id="message"
+                    name="message"
+                    hx-trigger="keydown[key==='Enter'&&!shiftKey]"
+                    hx-post="{% url 'conversation_detail' conversation.id %}"
+                    hx-swap="none"
+                    hx-on:keydown="(event.keyCode===13&&!event.shiftKey)?event.preventDefault():null"
+                    class="textarea"
+                    style="flex-shrink: 1;"
+                    placeholder="Type your message here..."
+                    rows="1"
+                    required></textarea>
+                <button type="submit" class="button is-primary" style="margin-left:10px;">Send</button>
+            </div>
+        </fieldset>
+    </form>
+</div>
+{% endblock %}

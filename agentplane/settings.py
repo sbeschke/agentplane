@@ -19,6 +19,7 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # OpenAI-compatible HTTP APIs (local llama-server, LiteLLM, vLLM, cloud OpenAI, etc.)
+# These can be overridden via MOPS_* settings or environment variables
 OPENAI_COMPAT_API_KEY = os.environ.get("OPENAI_API_KEY", "sk-local-provider")
 
 # Default local inference (llama-server); overridden via env for tests / custom ports
@@ -51,8 +52,7 @@ INSTALLED_APPS = [
     "django.contrib.postgres",
     "django_tasks",
     "django_tasks_db",
-    "agents.apps.AgentsConfig",
-    "documents.apps.DocumentsConfig",
+    "mops.apps.MopsConfig",
 ]
 
 MIDDLEWARE = [

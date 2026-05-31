@@ -1,0 +1,10 @@
+{% extends 'mops/base.html' %}
+{% block content %}
+    <h1 class="title">{{ agent.name }}</h1>
+    <p>{{ agent.description }}</p>
+    <form action="{% url 'conversation_list' %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="agent_slug" value="{{ agent.slug }}">
+        <button type="submit" class="button is-primary">Start New Conversation</button>
+    </form>
+{% endblock %}
