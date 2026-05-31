@@ -374,7 +374,7 @@ class DocumentAPITest(TestCase):
 
     def test_list_collections(self):
         """Test listing all collections."""
-        response = self.client.get("/api/collections/")
+        response = self.client.get("/mops/api/collections/")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsInstance(data, list)
@@ -388,7 +388,7 @@ class DocumentAPITest(TestCase):
 
     def test_get_collection(self):
         """Test getting a specific collection."""
-        response = self.client.get(f"/api/collections/{self.collection.slug}/")
+        response = self.client.get(f"/mops/api/collections/{self.collection.slug}/")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["name"], self.collection.name)
@@ -396,13 +396,13 @@ class DocumentAPITest(TestCase):
 
     def test_get_collection_not_found(self):
         """Test getting a non-existent collection."""
-        response = self.client.get("/api/collections/nonexistent/")
+        response = self.client.get("/mops/api/collections/nonexistent/")
         self.assertEqual(response.status_code, 404)
 
     def test_list_documents(self):
         """Test listing documents in a collection."""
         response = self.client.get(
-            f"/api/collections/{self.collection.slug}/documents/"
+            f"/mops/api/collections/{self.collection.slug}/documents/"
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -413,7 +413,7 @@ class DocumentAPITest(TestCase):
         pdf_content = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
 
         response = self.client.post(
-            f"/api/collections/{self.collection.slug}/documents/",
+            f"/mops/api/collections/{self.collection.slug}/documents/",
             {
                 "file": SimpleUploadedFile(
                     "test.pdf", pdf_content, content_type="application/pdf"
@@ -431,7 +431,7 @@ class DocumentAPITest(TestCase):
     def test_upload_non_pdf(self):
         """Test that non-PDF uploads are rejected."""
         response = self.client.post(
-            f"/api/collections/{self.collection.slug}/documents/",
+            f"/mops/api/collections/{self.collection.slug}/documents/",
             {
                 "file": SimpleUploadedFile(
                     "test.txt", b"text content", content_type="text/plain"

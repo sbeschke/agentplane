@@ -6,6 +6,11 @@ All settings can be overridden in the Django project's settings.py.
 from django.conf import settings
 
 
+def get_url_prefix():
+    """Get the URL prefix for mops endpoints."""
+    return getattr(settings, "MOPS_URL_PREFIX", "mops/")
+
+
 def get_local_llm_base_url():
     """Get the local LLM base URL from settings."""
     return getattr(settings, "MOPS_LOCAL_LLM_BASE_URL", "http://127.0.0.1:8765/v1")

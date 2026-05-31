@@ -13,7 +13,7 @@ class CreateConversationAPITest(TestCase):
             slug="test-agent",
             instructions="Respond with a greeting.",
         )
-        self.url = f"/api/agents/{self.agent.slug}/conversation/"
+        self.url = f"/mops/api/agents/{self.agent.slug}/conversation/"
 
     def test_create_conversation_returns_details(self):
         response = self.client.post(self.url)
@@ -31,7 +31,7 @@ class CreateConversationAPITest(TestCase):
 
     def test_create_conversation_unknown_agent_returns_404(self):
         response = self.client.post(
-            "/api/agents/unknown/conversation/",
+            "/mops/api/agents/unknown/conversation/",
             content_type="application/json",
         )
 
@@ -46,7 +46,9 @@ class AddMessageAPITest(TestCase):
             instructions="Respond with a greeting.",
         )
         self.conversation = self.agent.conversations.create(history=[])
-        self.url = f"/api/agents/{self.agent.slug}/conversation/{self.conversation.id}/"
+        self.url = (
+            f"/mops/api/agents/{self.agent.slug}/conversation/{self.conversation.id}/"
+        )
 
     @patch("mops.services.chat")
     def test_add_message_schedules_chat(self, mock_chat):
@@ -66,7 +68,9 @@ class AddMessageAPITest(TestCase):
             slug="other-agent",
             instructions="Respond briefly.",
         )
-        url = f"/api/agents/{other_agent.slug}/conversation/{self.conversation.id}/"
+        url = (
+            f"/mops/api/agents/{other_agent.slug}/conversation/{self.conversation.id}/"
+        )
 
         response = self.client.post(
             url,
@@ -87,7 +91,9 @@ class GetConversationAPITest(TestCase):
         self.conversation = self.agent.conversations.create(
             history=[{"role": "user", "content": "Hello"}],
         )
-        self.url = f"/api/agents/{self.agent.slug}/conversation/{self.conversation.id}/"
+        self.url = (
+            f"/mops/api/agents/{self.agent.slug}/conversation/{self.conversation.id}/"
+        )
 
     def test_get_conversation_returns_history(self):
         response = self.client.get(self.url)
@@ -108,7 +114,9 @@ class GetConversationAPITest(TestCase):
             slug="other-agent",
             instructions="Respond briefly.",
         )
-        url = f"/api/agents/{other_agent.slug}/conversation/{self.conversation.id}/"
+        url = (
+            f"/mops/api/agents/{other_agent.slug}/conversation/{self.conversation.id}/"
+        )
 
         response = self.client.get(url)
 

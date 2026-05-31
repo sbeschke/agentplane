@@ -1,5 +1,12 @@
 # agentplane Agents instructions
 
+## Ground Rules
+
+- Always run the linter after making code changes: `mise x -- ruff check .`
+- All functionality should be covered by unit tests (where applicable) and API integration tests.
+- Make sure that tests pass and there are no linter errors before reporting completion on any task.
+- If you need to run a Python command, prefix `uv run`.
+
 ## Development environment
 
 - `mise` is used to set up a development environment
