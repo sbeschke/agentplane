@@ -24,11 +24,22 @@ dependencies = [
     { name = "django-ninja" },
     { name = "django-tasks-db" },
     { name = "openai" },
-    { name = "pgvector" },
-    { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-ai" },
     { name = "pypdf" },
     { name = "sentence-transformers" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "pgvector" },
+    { name = "psycopg", extra = ["binary"] },
+]
+postgresql = [
+    { name = "psycopg", extra = ["binary"] },
+]
+vector-search = [
+    { name = "pgvector" },
+    { name = "psycopg", extra = ["binary"] },
 ]
 
 [package.metadata]
@@ -38,12 +49,16 @@ requires-dist = [
     { name = "django-ninja", specifier = ">=1.6.2" },
     { name = "django-tasks-db", specifier = ">=0.12.0" },
     { name = "openai", specifier = ">=2.30.0" },
-    { name = "pgvector", specifier = ">=0.3.0" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
+    { name = "pgvector", marker = "extra == 'all'", specifier = ">=0.3.0" },
+    { name = "pgvector", marker = "extra == 'vector-search'", specifier = ">=0.3.0" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'all'", specifier = ">=3.2" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'postgresql'", specifier = ">=3.2" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'vector-search'", specifier = ">=3.2" },
     { name = "pydantic-ai", specifier = ">=0.8.1" },
     { name = "pypdf", specifier = ">=4.0.0" },
     { name = "sentence-transformers", specifier = ">=3.0.0" },
 ]
+provides-extras = ["postgresql", "vector-search", "all"]
 
 [[package]]
 name = "annotated-doc"
