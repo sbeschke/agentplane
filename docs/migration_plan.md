@@ -1,8 +1,8 @@
-# django_mops Migration Plan
+# django-mops-agents Migration Plan
 
 ## Overview
 
-Transform the current monolithic `agentplane` project into a reusable Django app called `django_mops`. This plan merges the `agents` and `documents` apps into a single cohesive app, makes pgvector an optional dependency, and includes a hello-world example project.
+Transform the current monolithic `agentplane` project into a reusable Django app called **django-mops-agents**. The Python package name is `mops`. This plan merges the `agents` and `documents` apps into a single cohesive app, makes pgvector an optional dependency, and includes a hello-world example project.
 
 **Excluded from scope:** Phase 6 (Model Ops lifecycle, MCP support) - deferred to future work.
 
@@ -11,7 +11,7 @@ Transform the current monolithic `agentplane` project into a reusable Django app
 ## Architecture Decisions
 
 ### 1. Single App Structure
-- **Merge `agents` and `documents`** into one `django_mops` app
+- **Merge `agents` and `documents`** into one `mops` app
 - Simplifies installation: one app to add to `INSTALLED_APPS`
 - Reduces complexity for users
 - Internal modules keep logical separation (agents/, documents/ submodules)
@@ -30,7 +30,7 @@ Transform the current monolithic `agentplane` project into a reusable Django app
 ## Package Structure
 
 ```
-django_mops/
+mops/
 ├── __init__.py
 ├── models.py              # Merged models (Agent, Conversation, Collection, Document, DocumentChunk, LLMProvider)
 ├── services.py            # Merged services (chat, search, discovery)
@@ -43,7 +43,7 @@ django_mops/
 │   └── commands/
 │       └── mops_init.py   # Initialization command
 ├── templates/
-│   └── django_mops/       # Templates (if any)
+│   └── mops/              # Templates (if any)
 ├── migrations/
 │   └── __init__.py
 └── conf/
@@ -65,24 +65,24 @@ README.md                  # Installation and usage
 ## Phase 1: Package Restructuring (Week 1)
 
 ### Tasks
-- [ ] Create `django_mops/` package directory
-- [ ] Merge `agents/models.py` and `documents/models.py` into `django_mops/models.py`
-- [ ] Merge `agents/services.py` and `documents/services.py` into `django_mops/services.py`
-- [ ] Merge `agents/api.py` and any document APIs into `django_mops/api.py`
-- [ ] Merge `agents/urls.py` and `documents/urls.py` into `django_mops/urls.py`
-- [ ] Merge `agents/apps.py` and `documents/apps.py` into `django_mops/apps.py`
-- [ ] Merge `agents/admin.py` and `documents/admin.py` into `django_mops/admin.py`
-- [ ] Merge `agents/signals.py` and `documents/signals.py` into `django_mops/signals.py`
-- [ ] Move all migrations to `django_mops/migrations/`
+- [ ] Create `mops/` package directory
+- [ ] Merge `agents/models.py` and `documents/models.py` into `mops/models.py`
+- [ ] Merge `agents/services.py` and `documents/services.py` into `mops/services.py`
+- [ ] Merge `agents/api.py` and any document APIs into `mops/api.py`
+- [ ] Merge `agents/urls.py` and `documents/urls.py` into `mops/urls.py`
+- [ ] Merge `agents/apps.py` and `documents/apps.py` into `mops/apps.py`
+- [ ] Merge `agents/admin.py` and `documents/admin.py` into `mops/admin.py`
+- [ ] Merge `agents/signals.py` and `documents/signals.py` into `mops/signals.py`
+- [ ] Move all migrations to `mops/migrations/`
 - [ ] Update all internal imports to use new structure
-- [ ] Create `django_mops/conf/__init__.py` with configurable settings
-- [ ] Create `pyproject.toml` with package metadata
-- [ ] Create `django_mops/__init__.py`
+- [ ] Create `mops/conf/__init__.py` with configurable settings
+- [ ] Create `pyproject.toml` with package name `django-mops-agents`
+- [ ] Create `mops/__init__.py`
 - [ ] Port existing tests from `agents/tests/` and `documents/tests.py` to work with new structure
 - [ ] Run all ported tests and verify they pass
 
 ### Deliverables
-- Functional `django_mops/` package with merged code
+- Functional `mops/` package with merged code
 - All existing tests pass against new structure
 
 ---
@@ -95,7 +95,7 @@ README.md                  # Installation and usage
   - [ ] Use `models.JSONField` as fallback for `VectorField`
   - [ ] Add runtime check for pgvector availability
   - [ ] Document pgvector as optional dependency
-- [ ] Create configurable settings in `django_mops/conf/__init__.py`
+- [ ] Create configurable settings in `mops/conf/__init__.py`
   - [ ] `MOPS_LOCAL_LLM_BASE_URL` (default: `http://127.0.0.1:8765/v1`)
   - [ ] `MOPS_LOCAL_LLM_MODEL` (default: `gemma-2-2b-it`)
   - [ ] `MOPS_OPENAI_API_KEY` (default: `sk-local-provider`)
@@ -107,7 +107,7 @@ README.md                  # Installation and usage
 - [ ] Run full test suite to ensure no regressions
 
 ### Deliverables
-- Package works when installed in any Django project
+- Package works when installed in any Django project as `mops`
 - Settings are configurable via Django settings
 - pgvector is truly optional
 - All tests pass
@@ -118,7 +118,7 @@ README.md                  # Installation and usage
 
 ### Tasks
 - [ ] Namespace all URLs under `mops/` prefix
-- [ ] Update `django_mops/urls.py` to use app-relative paths
+- [ ] Update `mops/urls.py` to use app-relative paths
 - [ ] Ensure API endpoints are accessible via reverse URL lookups
 - [ ] Update NinjaAPI to use configurable prefix
 - [ ] Add URL namespace for easier inclusion in projects
@@ -174,6 +174,12 @@ README.md                  # Installation and usage
 
 ---
 
+## Project & Package Names
+
+- **PyPI package name**: `django-mops-agents`
+- **Python import name**: `mops`
+- **Django app name**: `mops` (added to `INSTALLED_APPS`)
+
 ## Dependencies
 
 ### Required
@@ -191,8 +197,8 @@ README.md                  # Installation and usage
 
 ## Success Criteria
 
-1. **Installation**: `pip install django-mops` works
-2. **Integration**: Adding `'django_mops'` to `INSTALLED_APPS` enables all functionality
+1. **Installation**: `pip install django-mops-agents` works
+2. **Integration**: Adding `'mops'` to `INSTALLED_APPS` enables all functionality
 3. **Configuration**: All settings can be customized via Django settings
 4. **Optional deps**: Package works without pgvector (with limited functionality)
 5. **Examples**: Hello-world example runs out of the box
