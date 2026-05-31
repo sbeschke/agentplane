@@ -11,3 +11,7 @@
     - Running tests: `mise x -- uv run python manage.py test`
     - Generating migrations: `mise x -- uv run python manage.py makemigrations`
     - Applying migrations: `mise x -- uv run python manage.py migrate`
+
+## Testing
+- Django's test `Client` does not support DRF's `format="multipart"` parameter. Use standard multipart encoding by passing `SimpleUploadedFile` directly in the data dict.
+- `django-tasks` uses `.enqueue()` method, not `.delay()` (which is Celery-style). Use `task.enqueue(args)` for background tasks.

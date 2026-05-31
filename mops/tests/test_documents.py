@@ -417,9 +417,9 @@ class DocumentAPITest(TestCase):
             {
                 "file": SimpleUploadedFile(
                     "test.pdf", pdf_content, content_type="application/pdf"
-                )
+                ),
+                "name": "Test PDF",
             },
-            format="multipart",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -435,9 +435,9 @@ class DocumentAPITest(TestCase):
             {
                 "file": SimpleUploadedFile(
                     "test.txt", b"text content", content_type="text/plain"
-                )
+                ),
+                "name": "Test TXT",
             },
-            format="multipart",
         )
 
         self.assertEqual(response.status_code, 400)

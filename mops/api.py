@@ -5,7 +5,7 @@ Merged from agents/api.py and documents/api.py.
 
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
-from ninja import NinjaAPI, Router, Schema
+from ninja import NinjaAPI, Schema
 from ninja.files import UploadedFile
 from ninja.responses import Response
 
@@ -22,6 +22,7 @@ api = NinjaAPI(version="1.0.0")
 # =============================================================================
 # Agent API Endpoints
 # =============================================================================
+
 
 class MessageIn(Schema):
     message: str
@@ -50,6 +51,7 @@ def add_message(request, agent_slug: str, conversation_id: int, data: MessageIn)
     if conversation.agent.slug != agent_slug:
         raise Http404
     from mops.services import chat
+
     chat(conversation, data.message)
     return Response(None, status=204)
 
@@ -69,6 +71,7 @@ def get_conversation(request, agent_slug: str, conversation_id: int):
 # =============================================================================
 # Document API Endpoints
 # =============================================================================
+
 
 class CollectionOut(Schema):
     id: int
@@ -212,7 +215,8 @@ def upload_document(
 
         # Trigger background processing
         from mops.services import process_document_task
-        process_document_task.delay(document.id)
+
+        process_document_task.enqueue(document.id)
 
         return DocumentOut(
             id=document.id,
