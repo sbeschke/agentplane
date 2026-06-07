@@ -357,8 +357,8 @@ class SearchChunksTest(TestCase):
 
     def test_search_chunks_no_collections(self):
         """Test search with no collections filter."""
-        results = search_chunks("test query", collections=None, limit=5)
-        self.assertIsInstance(results, list)
+        with self.assertRaises(ValueError):
+            search_chunks("test query", collections=None, limit=5)
 
 
 class DocumentAPITest(TestCase):

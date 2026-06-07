@@ -1,9 +1,8 @@
 from unittest.mock import patch, MagicMock
-from django.conf import settings
 from django.test import TestCase, override_settings
 from mops.models import Agent, Conversation, LLMProvider
 from mops.services import discover_models, chat
-from mops.conf import get_openai_compat_api_key, get_local_llm_base_url, get_local_llm_model
+from mops.conf import get_openai_compat_api_key
 
 
 class DiscoverModelsTest(TestCase):

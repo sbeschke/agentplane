@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Optional
 
 from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
-from django.db import connection
 from django.utils import timezone
 
 import openai
@@ -28,6 +27,7 @@ from mops.conf import (
 )
 
 if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
     from mops.models import (
         Agent as AgentModel,
         Collection,
@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Agent Services (from agents/services.py)
 # =============================================================================
+
 
 def _openai_provider(base_url: str, api_key: str = None) -> OpenAIProvider:
     return OpenAIProvider(
@@ -309,7 +310,7 @@ def generate_embedding(text: str) -> list[float]:
 
 def search_chunks(
     query: str,
-    collections: list["Collection"] | None = None,
+    collections: list["Collection"],
     limit: int = 5,
 ) -> list["DocumentChunk"]:
     """Search for document chunks similar to the query.
@@ -322,35 +323,23 @@ def search_chunks(
     Returns:
         List of DocumentChunk instances sorted by similarity (most similar first)
     """
+    from pgvector.django import L2Distance
     from mops.models import DocumentChunk
 
     # Generate embedding for the query
     query_embedding = generate_embedding(query)
 
-    # Build the query
-    if collections is not None and len(collections) > 0:
-        # Filter by collections
+    # Build the base queryset
+    if collections is not None:
         chunks = DocumentChunk.objects.filter(document__collection__in=collections)
-    elif collections is not None:
-        # Empty list - return no results
-        return []
     else:
-        chunks = DocumentChunk.objects.all()
+        raise ValueError("collections")
 
-    # Add distance annotation and order by similarity
-    # For now, use brute-force since pgvector is optional
-    # When pgvector is available, this can be optimized
-    all_chunks = list(chunks[:100])  # Limit for performance
-
-    def l2_distance(embedding1, embedding2):
-        """Calculate L2 distance between two embeddings."""
-        return sum((a - b) ** 2 for a, b in zip(embedding1, embedding2)) ** 0.5
-
-    # Sort by distance in Python
-    all_chunks.sort(key=lambda c: l2_distance(c.embedding, query_embedding))
-    chunks = all_chunks[:limit]
-
-    return chunks
+    # Use pgvector's L2 distance search - no truncation
+    chunks = chunks.annotate(
+        distance=L2Distance("embedding", query_embedding)
+    ).order_by("distance")[:limit]
+    return list(chunks)
 
 
 def index_document(document: "Document") -> None:
@@ -416,6 +405,7 @@ def index_document(document: "Document") -> None:
 # =============================================================================
 # Background Tasks (from documents/tasks.py)
 # =============================================================================
+
 
 @django_tasks.task
 def process_document_task(document_id: int) -> None:

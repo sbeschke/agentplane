@@ -8,43 +8,7 @@ from pydantic_core import to_jsonable_python
 
 from django.db import models
 
-
-# =============================================================================
-# pgvector Support - Optional Dependency
-# =============================================================================
-
-
-def _pgvector_available() -> bool:
-    """Check if pgvector is installed and available."""
-    import importlib.util
-
-    return importlib.util.find_spec("pgvector") is not None
-
-
-def _using_postgresql() -> bool:
-    """Check if the database backend is PostgreSQL."""
-    from django.db import connection
-
-    return connection.vendor == "postgresql"
-
-
-# Define VectorField based on pgvector availability and database backend
-# Only use ArrayField if both pgvector is installed AND we're using PostgreSQL
-if _pgvector_available() and _using_postgresql():
-    from django.contrib.postgres.fields import ArrayField
-
-    # Create a proper VectorField class that wraps ArrayField
-    class VectorField(ArrayField):
-        """A vector field for storing embeddings when pgvector is available."""
-
-        def __init__(self, *args, **kwargs):
-            # Set default size for embeddings (384 for all-MiniLM-L6-v2)
-            kwargs.setdefault("size", 384)
-            super().__init__(models.FloatField(), *args, **kwargs)
-else:
-    # Fallback to JSONField for storing vector embeddings
-    # This is used when pgvector is not installed OR when not using PostgreSQL
-    VectorField = models.JSONField
+from pgvector.django import VectorField, HnswIndex
 
 
 # =============================================================================
@@ -228,8 +192,7 @@ class DocumentChunk(models.Model):
     )
     content = models.TextField()
     chunk_index = models.PositiveIntegerField()
-    # Use VectorField if pgvector is available, otherwise fall back to JSONField
-    embedding = VectorField(default=list, null=True, blank=True)
+    embedding = VectorField(dimensions=384, default=list, null=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -237,6 +200,13 @@ class DocumentChunk(models.Model):
         ordering = ("document", "chunk_index")
         indexes = [
             models.Index(fields=["document", "chunk_index"]),
+            HnswIndex(
+                fields=["embedding"],
+                name="embedding_idx",
+                m=16,
+                ef_construction=64,
+                opclasses=["vector_l2_ops"],
+            ),
         ]
 
     def __str__(self):

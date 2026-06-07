@@ -2,8 +2,9 @@
 dev = "bash scripts/dev.sh"
 test = "uv run --env-file .env python manage.py test"
 migrate = "uv run --env-file .env python manage.py migrate"
-mmm = "uv run --env-file .env python manage.py makemigrations && uv run python manage.py migrate"
+mmm = "uv run --env-file .env python manage.py makemigrations && uv run --env-file .env python manage.py migrate"
 format = "prek run --all-files"
+lint = "ruff check ."
 
 [tools]
 prek = "latest"

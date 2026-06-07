@@ -1,8 +1,12 @@
 # agentplane Agents instructions
 
+- agentplane is a Python 3 project packaged as a Django app.
+- `mise` is used for commands and tool installation
+- `uv` is used for dependency management
+
 ## Ground Rules
 
-- Always run the linter after making code changes: `mise x -- ruff check .`
+- Always run the linter after making code changes: `mise run lint`
 - All functionality should be covered by unit tests (where applicable) and API integration tests.
 - Make sure that tests pass and there are no linter errors before reporting completion on any task.
 - If you need to run a Python command, prefix `uv run`.
