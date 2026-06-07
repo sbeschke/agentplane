@@ -19,6 +19,7 @@ from mops.models import (
 # Agent Admin (from agents/admin.py)
 # =============================================================================
 
+
 @admin.register(Agent)
 class AgentAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
@@ -73,6 +74,7 @@ class LLMProviderAdmin(admin.ModelAdmin):
 # =============================================================================
 # Document Admin (from documents/admin.py)
 # =============================================================================
+
 
 class DocumentInline(admin.TabularInline):
     model = Document
