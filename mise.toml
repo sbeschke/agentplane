@@ -1,10 +1,42 @@
-[tasks]
-dev = "bash scripts/dev.sh"
-test = "uv run --env-file .env python manage.py test"
-migrate = "uv run --env-file .env python manage.py migrate"
-mmm = "uv run --env-file .env python manage.py makemigrations && uv run --env-file .env python manage.py migrate"
-format = "prek run --all-files"
-lint = "ruff check ."
+[tasks.dev]
+description = "Start development server with process-compose"
+file = "scripts/dev.sh"
+
+[tasks.py]
+description = "Run Python with project environment"
+run = "uv run --env-file .env python"
+
+[tasks.format]
+description = "Format all files with prek"
+run = "prek run --all-files"
+
+[tasks.lint]
+description = "Run ruff linter on all files"
+run = "ruff check ."
+
+[tasks.test]
+description = "Run Django tests"
+usage = '''
+arg "<app>" help="Test a specific app" default=""
+flag "-v --verbose" help="Enable verbose output"
+'''
+run = "uv run --env-file .env python manage.py test ${usage_app?} ${usage_verbose?}"
+
+[tasks.migrate]
+description = "Run Django migrations"
+usage = '''
+arg "<app>" help="Migrate a specific app" default=""
+flag "--fake" help="Mark migrations as run without applying them"
+'''
+run = "uv run --env-file .env python manage.py migrate ${usage_app?} ${usage_fake?}"
+
+[tasks.mmm]
+description = "Create and apply Django migrations"
+usage = '''
+arg "<app>" help="Make and apply migrations for a specific app" default=""
+flag "--fake" help="Mark migrations as run without applying them"
+'''
+run = "uv run --env-file .env python manage.py makemigrations ${usage_app?} && uv run --env-file .env python manage.py migrate ${usage_app?} ${usage_fake?}"
 
 [tools]
 prek = "latest"
