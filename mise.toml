@@ -6,6 +6,10 @@ file = "scripts/dev.sh"
 description = "Run Python with project environment"
 run = "uv run --env-file .env python"
 
+[tasks.manage]
+description = "Run a Django management command"
+run = "uv run --env-file .env python manage.py"
+
 [tasks.format]
 description = "Format all files with prek"
 run = "prek run --all-files"
