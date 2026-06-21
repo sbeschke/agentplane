@@ -24,7 +24,7 @@ usage = '''
 arg "<app>" help="Test a specific app" default=""
 flag "-v --verbose" help="Enable verbose output"
 '''
-run = "uv run --env-file .env python manage.py test ${usage_app?} ${usage_verbose?}"
+run = "uv run --env-file .env python manage.py test ${usage_app:-} ${usage_verbose:-}"
 
 [tasks.migrate]
 description = "Run Django migrations"
@@ -32,7 +32,7 @@ usage = '''
 arg "<app>" help="Migrate a specific app" default=""
 flag "--fake" help="Mark migrations as run without applying them"
 '''
-run = "uv run --env-file .env python manage.py migrate ${usage_app?} ${usage_fake?}"
+run = "uv run --env-file .env python manage.py migrate ${usage_app:-} ${usage_fake:-}"
 
 [tasks.mmm]
 description = "Create and apply Django migrations"
@@ -40,7 +40,11 @@ usage = '''
 arg "<app>" help="Make and apply migrations for a specific app" default=""
 flag "--fake" help="Mark migrations as run without applying them"
 '''
-run = "uv run --env-file .env python manage.py makemigrations ${usage_app?} && uv run --env-file .env python manage.py migrate ${usage_app?} ${usage_fake?}"
+run = "uv run --env-file .env python manage.py makemigrations ${usage_app:-} && uv run --env-file .env python manage.py migrate ${usage_app:-} ${usage_fake:-}"
+
+[tasks.precommit]
+description = "Run tests before committing"
+run = "mise run test"
 
 [tools]
 prek = "latest"
