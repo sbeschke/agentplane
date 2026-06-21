@@ -231,3 +231,22 @@ def upload_document(
         )
     except Exception as e:
         return HttpResponseBadRequest(f"Failed to upload document: {e}")
+
+
+# =============================================================================
+# Code-Defined Agents Endpoints
+# =============================================================================
+
+@api.get("/agents/")
+def list_code_defined_agents(request):
+    """List all available code-defined agents."""
+    from mops.models import AgentConfig
+    return [
+        {
+            "slug": c.slug,
+            "name": c.name,
+            "description": c.description,
+            "implementation": c.implementation,
+        }
+        for c in AgentConfig.objects.all()
+    ]
