@@ -40,8 +40,8 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Sync dependencies
-        run: uv sync --all-extras
+      - name: Sync dependencies with all extras and dev
+        run: uv sync --all-extras --group dev
 
       - name: Run migrations
         env:
