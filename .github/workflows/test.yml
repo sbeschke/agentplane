@@ -33,25 +33,22 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install uv
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Sync dependencies
-        run: |
-          uv sync
+      - name: Sync dependencies with all extras
+        run: uv sync --all-extras
 
       - name: Run migrations
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mops_test
-        run: |
-          uv run python manage.py migrate --noinput
+        run: uv run python manage.py migrate --noinput
 
       - name: Run tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mops_test
-        run: |
-          uv run python manage.py test mops.tests.test_models mops.tests.test_resolver mops.tests.test_registry mops.tests.test_decorators -v 2
+        run: uv run python manage.py test mops.tests.test_models mops.tests.test_resolver mops.tests.test_registry mops.tests.test_decorators -v 2
