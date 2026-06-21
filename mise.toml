@@ -24,6 +24,8 @@ usage = '''
 arg "<app>" help="Test a specific app" default=""
 flag "-v --verbose" help="Enable verbose output"
 '''
+# Ensure postgres is running before tests
+dependencies = ["postgres"]
 run = "uv run --env-file .env python manage.py test ${usage_app:-} ${usage_verbose:-}"
 
 [tasks.migrate]
