@@ -43,3 +43,27 @@ Users can set up document collections (via Django Admin for now), which are inde
     - [x] After a document has been uploaded, a background job is started up that chunks the document and then indexes each chunk
 - [x] Each agent can be configured with document search: whether the search tool is enabled and which collections that agent may query
 - [x] When document search is enabled for an agent, the agent has access to a tool that searches only the collections configured for that agent
+
+## Milestone 2 - Code-defined agents
+
+The idea of this milestone is to make agent configuration more flexible. Currently, agents can only be customized by providing a prompt. After this milestone, users can configure agents through code, by writing a function that returns an Agent.
+A design doc for this milestone is in [`code_defined_agents.md`](code_defined_agents.md).
+
+**Definition of Done:** After implementing every story, the following must be true:
+- The new functionality is covered by tests (unit and API-level)
+- The new functionality is demonstrated by adding example code to the `mops-example` app.
+
+- [ ] Developers can write a function returning an Agent, and decorate it with @agent to make it accessible through an API
+  - [ ] An example `mops-example` app, which uses `mops`, contains an `agents.py` file that demonstrates the usage of agent functions
+  - [ ] Each registered agent automatically exposes REST endpoints at `/agents/{slug}/`
+  - [ ] Developers can list all available agents via `/agents/`
+- [ ] The Agent data model is renamed to Prompt and can be passed to an agent function as a dependency
+  - [ ] Migrate existing Agent instances to new Prompt + AgentConfig models
+  - [ ] Update Conversation to reference AgentConfig instead of Agent
+  - [ ] Preserve backward compatibility for existing API/URLs during transition
+- [ ] Individual collections and lists of collections can be passed into an agent function as a dependency
+- [ ] LLMProvider can be passed to an agent function as a dependency
+- [ ] Developers can define tools as decorated functions and pass them into agent functions as a dependency
+- [ ] A built-in `search_documents` tool is available for RAG operations
+- [ ] Agent function signatures are validated against AgentConfig parameters at startup
+  - [ ] Invalid AgentConfig (missing slugs, type mismatches) returns clear errors
