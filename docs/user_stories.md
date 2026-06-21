@@ -1,4 +1,4 @@
-# Agent Plane - User Stories
+# django-mops - User Stories
 
 ## Milestone 0 - PoC
 

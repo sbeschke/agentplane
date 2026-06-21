@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 mise install
-uv sync
+uv sync --all-extras
 uv run --env-file .env python manage.py migrate
 prek install --prepare-hooks
 bash scripts/download_llama_runtime.sh

@@ -1,6 +1,6 @@
-# agentplane Agents instructions
+# django-mops Agents instructions
 
-- agentplane is a Python 3 project packaged as a Django app.
+- django-mops is a Python 3 project packaged as a Django app.
 - `mise` is used for commands and tool installation
 - `uv` is used for dependency management
 

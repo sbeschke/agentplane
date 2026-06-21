@@ -1,4 +1,4 @@
-# Agent Plane - Architecture
+# django-mops - Architecture
 
 - Django + Django Admin for data management and record keeping
 - PostgreSQL for Django application data; **pgvector** extension for vector embeddings (same database)
