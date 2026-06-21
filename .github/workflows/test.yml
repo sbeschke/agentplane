@@ -1,0 +1,57 @@
+name: Test
+
+on:
+  push:
+    branches: [main, vibe/*]
+  pull_request:
+    branches: [main]
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    env:
+      POSTGRES_DB: mops_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - 5432:5432
+    options: >-
+      --health-cmd pg_isready
+      --health-interval 10s
+      --health-timeout 5s
+      --health-retries 5
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Sync dependencies
+        run: |
+          uv sync
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mops_test
+        run: |
+          uv run python manage.py migrate --noinput
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mops_test
+        run: |
+          uv run python manage.py test mops.tests.test_models mops.tests.test_resolver mops.tests.test_registry mops.tests.test_decorators -v 2
