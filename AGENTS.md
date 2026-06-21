@@ -21,6 +21,20 @@
 - CI uses `pgvector/pgvector:pg17` container with PostgreSQL
 - To debug CI failures locally: `mise run test` (requires Docker for PostgreSQL)
 
+## Testing Guidelines
+
+- **All tests must use Django TestCase** (not pytest)
+- Import from `django.test import TestCase`
+- Use `self.assert*` methods for assertions
+- Example:
+  ```python
+  from django.test import TestCase
+  
+  class MyTests(TestCase):
+      def test_something(self):
+          self.assertEqual(result, expected)
+  ```
+
 ## Development environment
 
 - `mise` is used to set up a development environment

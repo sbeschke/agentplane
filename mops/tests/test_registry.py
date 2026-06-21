@@ -1,6 +1,6 @@
 """Tests for the registry module."""
 
-import pytest
+from django.test import TestCase
 from pydantic_ai import Agent, Tool as PydanticTool
 from mops.registry import (
     register_agent,
@@ -12,7 +12,7 @@ from mops.registry import (
 )
 
 
-class TestAgentRegistry:
+class TestAgentRegistry(TestCase):
     """Tests for agent registry functions."""
 
     def test_register_and_get_agent(self):
@@ -21,12 +21,12 @@ class TestAgentRegistry:
             return Agent(instructions=prompt)
 
         register_agent("my_agent", my_agent)
-        assert "my_agent" in list_agents()
-        assert get_agent_factory("my_agent") is my_agent
+        self.assertIn("my_agent", list_agents())
+        self.assertIs(get_agent_factory("my_agent"), my_agent)
 
     def test_get_nonexistent_agent(self):
         """Test getting a non-existent agent raises KeyError."""
-        with pytest.raises(KeyError, match="not registered"):
+        with self.assertRaises(KeyError):
             get_agent_factory("nonexistent")
 
     def test_list_agents_empty(self):
@@ -36,12 +36,12 @@ class TestAgentRegistry:
         original = _agent_registry.copy()
         _agent_registry.clear()
         try:
-            assert list_agents() == []
+            self.assertEqual(list_agents(), [])
         finally:
             _agent_registry.update(original)
 
 
-class TestToolFactoryRegistry:
+class TestToolFactoryRegistry(TestCase):
     """Tests for tool factory registry functions."""
 
     def test_register_and_get_tool_factory(self):
@@ -52,12 +52,12 @@ class TestToolFactoryRegistry:
             return PydanticTool(my_tool)
 
         register_tool_factory("my_tool", my_tool_factory)
-        assert "my_tool" in list_tool_factories()
-        assert get_tool_factory("my_tool") is my_tool_factory
+        self.assertIn("my_tool", list_tool_factories())
+        self.assertIs(get_tool_factory("my_tool"), my_tool_factory)
 
     def test_get_nonexistent_tool_factory(self):
         """Test getting a non-existent tool factory raises KeyError."""
-        with pytest.raises(KeyError, match="not registered"):
+        with self.assertRaises(KeyError):
             get_tool_factory("nonexistent")
 
     def test_list_tool_factories_empty(self):
@@ -66,6 +66,6 @@ class TestToolFactoryRegistry:
         original = _tool_factory_registry.copy()
         _tool_factory_registry.clear()
         try:
-            assert list_tool_factories() == []
+            self.assertEqual(list_tool_factories(), [])
         finally:
             _tool_factory_registry.update(original)

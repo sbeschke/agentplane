@@ -1,12 +1,12 @@
 """Tests for the decorators module."""
 
-import pytest
+from django.test import TestCase
 from pydantic_ai import Agent, Tool as PydanticTool
 from mops.registry import list_agents, list_tool_factories, get_agent_factory, get_tool_factory
 from mops.decorators import agent, tool
 
 
-class TestAgentDecorator:
+class TestAgentDecorator(TestCase):
     """Tests for the @agent decorator."""
 
     def test_agent_decorator_registers_function(self):
@@ -15,8 +15,8 @@ class TestAgentDecorator:
         def my_agent(prompt) -> Agent:
             return Agent(instructions="test")
 
-        assert "my_agent" in list_agents()
-        assert get_agent_factory("my_agent") is my_agent
+        self.assertIn("my_agent", list_agents())
+        self.assertIs(get_agent_factory("my_agent"), my_agent)
 
     def test_agent_decorator_returns_function(self):
         """Test that @agent decorator returns the original function."""
@@ -24,7 +24,7 @@ class TestAgentDecorator:
         def my_agent(prompt) -> Agent:
             return Agent(instructions="test")
 
-        assert callable(my_agent)
+        self.assertTrue(callable(my_agent))
 
     def test_agent_decorator_preserves_function_name(self):
         """Test that the function name is preserved."""
@@ -32,10 +32,10 @@ class TestAgentDecorator:
         def custom_agent_name(prompt) -> Agent:
             return Agent(instructions="test")
 
-        assert "custom_agent_name" in list_agents()
+        self.assertIn("custom_agent_name", list_agents())
 
 
-class TestToolDecorator:
+class TestToolDecorator(TestCase):
     """Tests for the @tool decorator."""
 
     def test_tool_decorator_registers_factory(self):
@@ -46,8 +46,8 @@ class TestToolDecorator:
                 return x * 2
             return PydanticTool(my_tool)
 
-        assert "my_tool_factory" in list_tool_factories()
-        assert get_tool_factory("my_tool_factory") is my_tool_factory
+        self.assertIn("my_tool_factory", list_tool_factories())
+        self.assertIs(get_tool_factory("my_tool_factory"), my_tool_factory)
 
     def test_tool_decorator_returns_original_function(self):
         """Test that @tool decorator returns the original factory function."""
@@ -58,7 +58,7 @@ class TestToolDecorator:
             return PydanticTool(my_tool)
 
         # Should return the original factory function
-        assert callable(my_tool_factory)
+        self.assertTrue(callable(my_tool_factory))
 
     def test_tool_decorator_with_custom_slug(self):
         """Test @tool decorator with custom slug."""
@@ -68,8 +68,8 @@ class TestToolDecorator:
                 return x * 2
             return PydanticTool(my_tool)
 
-        assert "custom_slug" in list_tool_factories()
-        assert get_tool_factory("custom_slug") is my_tool_factory
+        self.assertIn("custom_slug", list_tool_factories())
+        self.assertIs(get_tool_factory("custom_slug"), my_tool_factory)
 
     def test_tool_decorator_without_slug_uses_function_name(self):
         """Test that @tool without slug uses the function name."""
@@ -79,4 +79,4 @@ class TestToolDecorator:
                 return f"Sunny in {city}"
             return PydanticTool(weather)
 
-        assert "weather_tool_factory" in list_tool_factories()
+        self.assertIn("weather_tool_factory", list_tool_factories())
