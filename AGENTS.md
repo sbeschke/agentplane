@@ -8,6 +8,7 @@
 
 - Always run the linter after making code changes: `mise run lint`
 - All functionality should be covered by unit tests (where applicable) and API integration tests.
+- **ALWAYS test before committing / pushing something**
 - Make sure that tests pass and there are no linter errors before reporting completion on any task.
 - If you need to run a Python command, prefix `uv run`.
 

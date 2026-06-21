@@ -7,8 +7,32 @@ from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 from pydantic_core import to_jsonable_python
 
 from django.db import models
+from django.conf import settings
 
-from pgvector.django import VectorField, HnswIndex
+# Conditionally import pgvector fields only if postgres is available
+try:
+    from pgvector.django import VectorField, HnswIndex
+    PGVECTOR_AVAILABLE = True
+except ImportError:
+    PGVECTOR_AVAILABLE = False
+
+# For testing without postgres, create a placeholder VectorField
+if not PGVECTOR_AVAILABLE or "django.contrib.postgres" not in settings.INSTALLED_APPS:
+    class VectorField(models.JSONField):
+        """Placeholder VectorField for testing without pgvector."""
+        def __init__(self, dimensions=None, **kwargs):
+            # Remove dimensions parameter as JSONField doesn't support it
+            kwargs.pop('dimensions', None)
+            super().__init__(**kwargs)
+    
+    class HnswIndex(models.Index):
+        """Placeholder HnswIndex for testing without pgvector."""
+        def __init__(self, fields=None, name=None, **kwargs):
+            # Remove pgvector-specific parameters
+            kwargs.pop('m', None)
+            kwargs.pop('ef_construction', None)
+            kwargs.pop('opclasses', None)
+            super().__init__(fields=fields, name=name, **kwargs)
 
 
 # =============================================================================

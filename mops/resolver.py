@@ -5,6 +5,7 @@ configuration slugs to actual objects (DB models, PydanticAI Tools, etc.).
 """
 
 import inspect
+import types
 from typing import get_origin, get_args, Any, Union
 from pydantic_ai import Tool as PydanticTool, Agent
 from mops.models import Prompt, LLMProvider, Collection, AgentConfig, ToolConfig
@@ -20,6 +21,18 @@ class DependencyNotFoundError(ValueError):
 class InvalidTypeError(ValueError):
     """Raised when a dependency type is invalid or unsupported."""
     pass
+
+
+def _is_optional_type(param_type: type) -> bool:
+    """Check if a type annotation is Optional (Union with None or | None)."""
+    origin = get_origin(param_type)
+    # Handle Union[T, None] from typing
+    if origin is Union:
+        return type(None) in get_args(param_type)
+    # Handle T | None from Python 3.10+ (types.UnionType)
+    if origin is types.UnionType:
+        return type(None) in get_args(param_type)
+    return False
 
 
 # Map of dependency types to their resolution strategies
@@ -55,8 +68,8 @@ def resolve_dependency(param_type: type, slug: str | list[str] | None) -> Any:
     """
     # Handle None (for Optional parameters)
     if slug is None:
-        # Check if the type is Optional (Union with None)
-        if get_origin(param_type) is Union and type(None) in get_args(param_type):
+        # Check if the type is Optional (Union with None or | None)
+        if _is_optional_type(param_type):
             return None
         raise InvalidTypeError(f"Non-optional parameter {param_type} cannot be None")
 
@@ -198,9 +211,8 @@ def validate_agent_config(config: AgentConfig) -> list[str]:
 
             # Skip None checks for Optional types
             if param_slug is None:
-                if get_origin(param_type) is not type(None) and not (
-                    get_origin(param_type) is Union and type(None) in get_args(param_type)
-                ):
+                # Check if the type is Optional (Union with None or | None)
+                if not _is_optional_type(param_type):
                     errors.append(
                         f"Parameter '{param_name}' is None but type {param_type} is not Optional"
                     )
