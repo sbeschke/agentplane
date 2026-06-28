@@ -4,17 +4,16 @@ This module provides REST API endpoints for code-defined agents.
 """
 
 from ninja import Router
-from pydantic_ai import Agent
 from mops.resolver import get_agent, DependencyNotFoundError, InvalidTypeError
 from mops.models import AgentConfig
 
 
 def create_agent_router(slug: str) -> Router:
     """Create a router for a specific agent.
-    
+
     Args:
         slug: The AgentConfig slug for the agent.
-    
+
     Returns:
         A NinjaAPI Router with endpoints for the agent.
     """
@@ -23,14 +22,14 @@ def create_agent_router(slug: str) -> Router:
     @router.post("/")
     def run_agent(request, message: str):
         """Run the agent with a message.
-        
+
         Args:
             request: The HTTP request.
             message: The user's message to the agent.
-        
+
         Returns:
             A JSON response containing the agent's reply.
-        
+
         Raises:
             HTTP_404: If the agent config is not found.
             HTTP_400: If there's a dependency resolution error.
@@ -49,13 +48,13 @@ def create_agent_router(slug: str) -> Router:
     @router.get("/")
     def get_agent_info(request):
         """Get agent configuration info.
-        
+
         Args:
             request: The HTTP request.
-        
+
         Returns:
             A JSON response with agent configuration details.
-        
+
         Raises:
             HTTP_404: If the agent config is not found.
         """

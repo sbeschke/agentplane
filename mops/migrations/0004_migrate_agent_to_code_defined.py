@@ -8,12 +8,11 @@ def migrate_agent_to_prompt_and_config(apps, schema_editor):
     Agent = apps.get_model("mops", "Agent")
     Prompt = apps.get_model("mops", "Prompt")
     AgentConfig = apps.get_model("mops", "AgentConfig")
-    LLMProvider = apps.get_model("mops", "LLMProvider")
 
     for agent in Agent.objects.all():
         # Create Prompt from Agent
         prompt_slug = agent.slug or f"prompt-{agent.id}"
-        prompt = Prompt.objects.create(
+        Prompt.objects.create(
             slug=prompt_slug,
             name=agent.name,
             text=agent.instructions or "",

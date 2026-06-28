@@ -45,7 +45,7 @@ class AddMessageAPITest(TestCase):
             slug="test-agent",
             instructions="Respond with a greeting.",
         )
-        self.conversation = self.agent.conversations.create(history=[])
+        self.conversation = self.agent.legacy_conversations.create(history=[])
         self.url = (
             f"/mops/api/agents/{self.agent.slug}/conversation/{self.conversation.id}/"
         )
@@ -88,7 +88,7 @@ class GetConversationAPITest(TestCase):
             slug="test-agent",
             instructions="Respond with a greeting.",
         )
-        self.conversation = self.agent.conversations.create(
+        self.conversation = self.agent.legacy_conversations.create(
             history=[{"role": "user", "content": "Hello"}],
         )
         self.url = (

@@ -13,18 +13,18 @@ class TestResolveDependency(TestCase):
 
     def test_resolve_prompt(self):
         """Test resolving a Prompt by slug."""
-        prompt = Prompt.objects.create(slug="test-prompt", name="Test", text="Hello")
+        Prompt.objects.create(slug="test-prompt", name="Test", text="Hello")
         result = resolve_dependency(Prompt, "test-prompt")
         self.assertEqual(result.slug, "test-prompt")
         self.assertEqual(result.text, "Hello")
 
     def test_resolve_llm_provider(self):
         """Test resolving an LLMProvider by slug."""
-        provider = LLMProvider.objects.create(
+        LLMProvider.objects.create(
             slug="test-provider",
             name="Test",
             url="http://test.com",
-            default_model="gpt-4"
+            default_model="gpt-4",
         )
         result = resolve_dependency(LLMProvider, "test-provider")
         self.assertEqual(result.slug, "test-provider")
@@ -32,14 +32,14 @@ class TestResolveDependency(TestCase):
 
     def test_resolve_collection(self):
         """Test resolving a Collection by slug."""
-        collection = Collection.objects.create(slug="test-collection", name="Test")
+        Collection.objects.create(slug="test-collection", name="Test")
         result = resolve_dependency(Collection, "test-collection")
         self.assertEqual(result.slug, "test-collection")
 
     def test_resolve_list_of_collections(self):
         """Test resolving a list of Collections by slugs."""
-        c1 = Collection.objects.create(slug="c1", name="C1")
-        c2 = Collection.objects.create(slug="c2", name="C2")
+        Collection.objects.create(slug="c1", name="C1")
+        Collection.objects.create(slug="c2", name="C2")
         result = resolve_dependency(list[Collection], ["c1", "c2"])
         self.assertEqual(len(result), 2)
         self.assertEqual(set(r.slug for r in result), {"c1", "c2"})
@@ -61,21 +61,23 @@ class TestResolveDependency(TestCase):
 
     def test_resolve_tool_config(self):
         """Test resolving a ToolConfig to a PydanticTool."""
+
         # Register a tool factory
         def search_tool_factory(collections: list[Collection], **kwargs):
             def search(query: str) -> str:
                 return "results"
+
             return PydanticTool(search)
 
         register_tool_factory("search_documents", search_tool_factory)
 
         # Create ToolConfig
-        c1 = Collection.objects.create(slug="c1", name="C1")
+        Collection.objects.create(slug="c1", name="C1")
         ToolConfig.objects.create(
             slug="search-config",
             name="Search Config",
             tool_slug="search_documents",
-            parameters={"collections": ["c1"]}
+            parameters={"collections": ["c1"]},
         )
 
         result = resolve_dependency(PydanticTool, "search-config")
@@ -83,9 +85,11 @@ class TestResolveDependency(TestCase):
 
     def test_resolve_list_of_tool_configs(self):
         """Test resolving a list of ToolConfigs to PydanticTools."""
+
         def tool_factory(**kwargs):
             def tool(x: int) -> int:
                 return x * 2
+
             return PydanticTool(tool)
 
         register_tool_factory("tool1", tool_factory)
@@ -98,7 +102,9 @@ class TestResolveDependency(TestCase):
             slug="tool-config-2", tool_slug="tool2", parameters={}
         )
 
-        result = resolve_dependency(list[PydanticTool], ["tool-config-1", "tool-config-2"])
+        result = resolve_dependency(
+            list[PydanticTool], ["tool-config-1", "tool-config-2"]
+        )
         self.assertEqual(len(result), 2)
         self.assertTrue(all(isinstance(t, PydanticTool) for t in result))
 
@@ -108,41 +114,41 @@ class TestGetAgent(TestCase):
 
     def test_get_agent_success(self):
         """Test getting an agent by slug."""
-        prompt = Prompt.objects.create(slug="test-prompt", name="Test", text="Hello")
+        Prompt.objects.create(slug="test-prompt", name="Test", text="Hello")
 
         def test_agent(prompt: Prompt) -> Agent:
-            return Agent(instructions=prompt.text)
-        
+            return Agent(instructions=[prompt.text])
+
         register_agent("test_agent", test_agent)
 
         AgentConfig.objects.create(
             slug="test-agent",
             name="Test Agent",
             implementation="test_agent",
-            parameters={"prompt": "test-prompt"}
+            parameters={"prompt": "test-prompt"},
         )
 
         agent = get_agent("test-agent")
-        self.assertEqual(agent._instructions, ["Hello"])
+        self.assertEqual(agent._instructions, "Hello")
 
     def test_get_agent_with_optional_param(self):
         """Test getting an agent with optional parameters."""
-        prompt = Prompt.objects.create(slug="test-prompt", name="Test", text="Hello")
+        Prompt.objects.create(slug="test-prompt", name="Test", text="Hello")
 
         def test_agent(prompt: Prompt, llm: LLMProvider | None = None) -> Agent:
-            return Agent(instructions=prompt.text)
-        
+            return Agent(instructions=[prompt.text])
+
         register_agent("test_agent_optional", test_agent)
 
         AgentConfig.objects.create(
             slug="test-agent-optional",
             name="Test Agent Optional",
             implementation="test_agent_optional",
-            parameters={"prompt": "test-prompt"}  # llm is optional
+            parameters={"prompt": "test-prompt"},  # llm is optional
         )
 
         agent = get_agent("test-agent-optional")
-        self.assertEqual(agent._instructions, ["Hello"])
+        self.assertEqual(agent._instructions, "Hello")
 
     def test_get_agent_nonexistent_config(self):
         """Test getting a non-existent agent config raises error."""
@@ -155,30 +161,32 @@ class TestValidateAgentConfig(TestCase):
 
     def test_valid_config(self):
         """Test validating a valid AgentConfig."""
+
         def test_agent(prompt: Prompt) -> Agent:
-            return Agent(instructions=prompt.text)
-        
+            return Agent(instructions=[prompt.text])
+
         register_agent("valid_agent", test_agent)
 
         config = AgentConfig(
             slug="test-agent",
             implementation="valid_agent",
-            parameters={"prompt": "test-prompt"}
+            parameters={"prompt": "test-prompt"},
         )
         errors = validate_agent_config(config)
         self.assertEqual(errors, [])
 
     def test_missing_required_parameter(self):
         """Test validating a config with missing required parameter."""
+
         def test_agent(prompt: Prompt, llm: LLMProvider) -> Agent:
-            return Agent(instructions=prompt.text)
-        
+            return Agent(instructions=[prompt.text])
+
         register_agent("missing_param_agent", test_agent)
 
         config = AgentConfig(
             slug="test-agent",
             implementation="missing_param_agent",
-            parameters={"prompt": "test-prompt"}  # Missing llm
+            parameters={"prompt": "test-prompt"},  # Missing llm
         )
         errors = validate_agent_config(config)
         self.assertEqual(len(errors), 1)
@@ -186,15 +194,16 @@ class TestValidateAgentConfig(TestCase):
 
     def test_extra_parameter(self):
         """Test validating a config with extra parameter."""
+
         def test_agent(prompt: Prompt) -> Agent:
-            return Agent(instructions=prompt.text)
-        
+            return Agent(instructions=[prompt.text])
+
         register_agent("extra_param_agent", test_agent)
 
         config = AgentConfig(
             slug="test-agent",
             implementation="extra_param_agent",
-            parameters={"prompt": "test-prompt", "extra": "value"}
+            parameters={"prompt": "test-prompt", "extra": "value"},
         )
         errors = validate_agent_config(config)
         self.assertEqual(len(errors), 1)
@@ -203,9 +212,7 @@ class TestValidateAgentConfig(TestCase):
     def test_nonexistent_implementation(self):
         """Test validating a config with non-existent implementation."""
         config = AgentConfig(
-            slug="test-agent",
-            implementation="nonexistent_agent",
-            parameters={}
+            slug="test-agent", implementation="nonexistent_agent", parameters={}
         )
         errors = validate_agent_config(config)
         self.assertEqual(len(errors), 1)
@@ -213,45 +220,48 @@ class TestValidateAgentConfig(TestCase):
 
     def test_optional_parameter_with_none(self):
         """Test validating a config with optional parameter set to None."""
+
         def test_agent(prompt: Prompt, llm: LLMProvider | None = None) -> Agent:
-            return Agent(instructions=prompt.text)
-        
+            return Agent(instructions=[prompt.text])
+
         register_agent("optional_none_agent", test_agent)
 
         config = AgentConfig(
             slug="test-agent",
             implementation="optional_none_agent",
-            parameters={"prompt": "test-prompt", "llm": None}
+            parameters={"prompt": "test-prompt", "llm": None},
         )
         errors = validate_agent_config(config)
         self.assertEqual(errors, [])
 
     def test_list_parameter_validation(self):
         """Test validating a config with list parameter."""
+
         def test_agent(collections: list[Collection]) -> Agent:
             return Agent(instructions="test")
-        
+
         register_agent("list_param_agent", test_agent)
 
         config = AgentConfig(
             slug="test-agent",
             implementation="list_param_agent",
-            parameters={"collections": ["c1", "c2"]}  # Valid list
+            parameters={"collections": ["c1", "c2"]},  # Valid list
         )
         errors = validate_agent_config(config)
         self.assertEqual(errors, [])
 
     def test_list_parameter_with_non_list_value(self):
         """Test validating a config with list parameter but non-list value."""
+
         def test_agent(collections: list[Collection]) -> Agent:
             return Agent(instructions="test")
-        
+
         register_agent("invalid_list_agent", test_agent)
 
         config = AgentConfig(
             slug="test-agent",
             implementation="invalid_list_agent",
-            parameters={"collections": "not-a-list"}  # Invalid
+            parameters={"collections": "not-a-list"},  # Invalid
         )
         errors = validate_agent_config(config)
         self.assertEqual(len(errors), 1)
