@@ -73,8 +73,17 @@ class Conversation(models.Model):
     represents an event. The format follows the PydanticAI format.
     """
 
+    agent_config = models.ForeignKey(
+        "AgentConfig",
+        on_delete=models.CASCADE,
+        related_name="conversations",
+        null=True,
+        blank=True,
+    )
     agent = models.ForeignKey(
-        Agent, on_delete=models.CASCADE, related_name="conversations"
+        Agent, on_delete=models.CASCADE, related_name="legacy_conversations",
+        null=True,
+        blank=True,
     )
     history = models.JSONField(
         default=list
@@ -83,7 +92,9 @@ class Conversation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Conversation with {self.agent.name} at {self.created_at}"
+        # Use agent_config if available, otherwise fall back to agent
+        agent_name = self.agent_config.name if self.agent_config else self.agent.name if self.agent else "Unknown"
+        return f"Conversation with {agent_name} at {self.created_at}"
 
     def get_history(self) -> list[ModelMessage]:
         """Get the conversation history as a list of ModelMessage objects."""
@@ -96,6 +107,7 @@ class Conversation(models.Model):
 
 
 class LLMProvider(models.Model):
+    slug = models.SlugField(max_length=255, unique=True, null=True, blank=True)
     name = models.CharField(max_length=255)
     url = models.URLField(
         help_text="Base URL for an OpenAI-compatible HTTP API (include /v1), "
@@ -104,7 +116,76 @@ class LLMProvider(models.Model):
     available_models = models.JSONField(
         default=list, help_text="List of available model names"
     )
+    default_model = models.CharField(
+        max_length=255, blank=True, default="",
+        help_text="Default model to use for this provider"
+    )
     last_discovered = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+
+# =============================================================================
+# Code-Defined Agents Models (Milestone 2)
+# =============================================================================
+
+
+class Prompt(models.Model):
+    """A prompt template for agents."""
+    slug = models.SlugField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
+    text = models.TextField()
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class ToolConfig(models.Model):
+    """Configuration for a parameterized tool.
+    
+    References a registered tool factory (via tool_slug) and stores
+    runtime parameters for instantiating the tool.
+    """
+    slug = models.SlugField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
+    tool_slug = models.CharField(
+        max_length=255,
+        help_text="Registered tool factory name (e.g., 'search_documents')"
+    )
+    parameters = models.JSONField(
+        default=dict,
+        help_text="Runtime parameters for the tool factory (e.g., {'collections': ['docs']})"
+    )
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class AgentConfig(models.Model):
+    """Configuration for a code-defined agent.
+    
+    Maps a URL slug to an agent implementation and its dependencies.
+    """
+    slug = models.SlugField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    implementation = models.CharField(
+        max_length=255,
+        help_text="Registered agent factory function name"
+    )
+    parameters = models.JSONField(
+        default=dict,
+        help_text="Dependency slugs for the agent (e.g., {'prompt': 'my-prompt', 'llm': 'openai'})"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name

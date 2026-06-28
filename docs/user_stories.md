@@ -53,17 +53,20 @@ A design doc for this milestone is in [`code_defined_agents.md`](code_defined_ag
 - The new functionality is covered by tests (unit and API-level)
 - The new functionality is demonstrated by adding example code to the `mops-example` app.
 
-- [ ] Developers can write a function returning an Agent, and decorate it with @agent to make it accessible through an API
-  - [ ] An example `mops-example` app, which uses `mops`, contains an `agents.py` file that demonstrates the usage of agent functions
-  - [ ] Each registered agent automatically exposes REST endpoints at `/agents/{slug}/`
-  - [ ] Developers can list all available agents via `/agents/`
-- [ ] The Agent data model is renamed to Prompt and can be passed to an agent function as a dependency
-  - [ ] Migrate existing Agent instances to new Prompt + AgentConfig models
-  - [ ] Update Conversation to reference AgentConfig instead of Agent
-  - [ ] Preserve backward compatibility for existing API/URLs during transition
-- [ ] Individual collections and lists of collections can be passed into an agent function as a dependency
-- [ ] LLMProvider can be passed to an agent function as a dependency
-- [ ] Developers can define tools as decorated functions and pass them into agent functions as a dependency
-- [ ] A built-in `search_documents` tool is available for RAG operations
-- [ ] Agent function signatures are validated against AgentConfig parameters at startup
-  - [ ] Invalid AgentConfig (missing slugs, type mismatches) returns clear errors
+- [x] Developers can write a function returning an Agent, and decorate it with @agent to make it accessible through an API
+  - [x] An example `mops-example` app, which uses `mops`, contains an `agents.py` file that demonstrates the usage of agent functions
+  - [x] Each registered agent automatically exposes REST endpoints at `/agents/{slug}/`
+  - [x] Developers can list all available agents via `/agents/`
+- [x] The Agent data model is renamed to Prompt and can be passed to an agent function as a dependency
+  - [x] Migrate existing Agent instances to new Prompt + AgentConfig models
+  - [x] Update Conversation to reference AgentConfig instead of Agent
+  - [x] Backward compatibility removed (no productive usage yet)
+- [x] Individual collections and lists of collections can be passed into an agent function as a dependency
+- [x] LLMProvider can be passed to an agent function as a dependency
+- [x] Developers can define tools as decorated functions and pass them into agent functions as a dependency
+  - [x] Tools are registered as factories via @tool decorator
+  - [x] ToolConfig model stores runtime parameters for parameterized tools
+- [x] A built-in `search_documents` tool is available for RAG operations
+- [x] Agent function signatures are validated against AgentConfig parameters at startup
+  - [x] Invalid AgentConfig (missing slugs, type mismatches) returns clear errors
+  - [x] Custom exceptions (DependencyNotFoundError, InvalidTypeError) for error handling

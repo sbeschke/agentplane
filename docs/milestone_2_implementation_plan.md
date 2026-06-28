@@ -3,9 +3,12 @@
 ## Overview
 
 This document outlines the step-by-step implementation plan for Milestone 2: Code-Defined Agents.
-The milestone introduces a clean separation between agent code (implementations, tools) and configuration (prompts, providers, collections).
+The milestone introduces a clean separation between agent code (implementations, tools) and configuration (prompts, providers, collections, tool configs).
 
-**Target State:** Developers write `@agent` decorated functions that receive dependencies (Prompt, LLMProvider, Collection, Tool) and return PydanticAI `Agent` objects. Configuration is stored in DB models and wired via `AgentConfig`.
+**Target State:** 
+- Developers write `@agent` decorated functions that receive dependencies (Prompt, LLMProvider, Collection, ToolConfig) and return PydanticAI `Agent` objects.
+- Configuration is stored in DB models (`Prompt`, `LLMProvider`, `Collection`, `ToolConfig`) and wired via `AgentConfig`.
+- Tools are registered as **factories** via `@tool`. Parameterized tools are configured via `ToolConfig` instances.
 
 ---
 
@@ -17,8 +20,8 @@ The milestone introduces a clean separation between agent code (implementations,
 ### Phase 2: Agent Code (Decorators + Resolver)
 *Enables writing agent functions. Still no breaking changes.*
 
-### Phase 3: Migration (Data + Backward Compat)
-*Migrates existing Agent model. Introduces breaking changes, requires data migration.*
+### Phase 3: Migration (Data)
+*Migrates existing Agent model to Prompt + AgentConfig. Introduces breaking changes, requires data migration.*
 
 ### Phase 4: Integration (Endpoints + Tools + Validation)
 *Connects everything to the API and adds built-in tools.*
@@ -53,7 +56,20 @@ The milestone introduces a clean separation between agent code (implementations,
       name = models.CharField(max_length=255)
       url = models.URLField(...)
       available_models = models.JSONField(default=list)
+      default_model = models.CharField(max_length=255, blank=True)  # NEW: default model for this provider
       last_discovered = models.DateTimeField(null=True, blank=True)
+  ```
+
+- [ ] Create `ToolConfig` model (NEW: for parameterized tools)
+  ```python
+  class ToolConfig(models.Model):
+      slug = models.SlugField(unique=True)
+      name = models.CharField(max_length=255)
+      tool_slug = models.CharField(max_length=255)  # registered tool factory name (e.g., "search_documents")
+      parameters = models.JSONField(default=dict)  # runtime parameters for the tool factory (e.g., {"collections": ["docs"]})
+      description = models.TextField(blank=True)
+      created_at = models.DateTimeField(auto_now_add=True)
+      updated_at = models.DateTimeField(auto_now=True)
   ```
 
 - [ ] Create `AgentConfig` model
@@ -80,7 +96,7 @@ from typing import Callable
 from pydantic_ai import Agent, Tool as PydanticTool
 
 _agent_registry: dict[str, Callable] = {}
-_tool_registry: dict[str, PydanticTool] = {}
+_tool_factory_registry: dict[str, Callable] = {}  # Changed: stores factories, not PydanticTool objects
 
 
 def register_agent(impl_name: str, factory: Callable):
@@ -88,9 +104,9 @@ def register_agent(impl_name: str, factory: Callable):
     _agent_registry[impl_name] = factory
 
 
-def register_tool(slug: str, tool_obj: PydanticTool):
-    """Register a PydanticAI Tool by slug."""
-    _tool_registry[slug] = tool_obj
+def register_tool_factory(tool_slug: str, factory: Callable):
+    """Register a tool factory by slug. The factory must accept **kwargs and return a PydanticTool."""
+    _tool_factory_registry[tool_slug] = factory
 
 
 def get_agent_factory(impl_name: str) -> Callable:
@@ -100,11 +116,11 @@ def get_agent_factory(impl_name: str) -> Callable:
     return _agent_registry[impl_name]
 
 
-def get_tool(slug: str) -> PydanticTool:
-    """Get tool by slug."""
-    if slug not in _tool_registry:
-        raise KeyError(f"Tool '{slug}' not registered")
-    return _tool_registry[slug]
+def get_tool_factory(tool_slug: str) -> Callable:
+    """Get tool factory by slug."""
+    if tool_slug not in _tool_factory_registry:
+        raise KeyError(f"Tool factory '{tool_slug}' not registered")
+    return _tool_factory_registry[tool_slug]
 
 
 def list_agents() -> list[str]:
@@ -112,9 +128,9 @@ def list_agents() -> list[str]:
     return list(_agent_registry.keys())
 
 
-def list_tools() -> list[str]:
-    """List all registered tool slugs."""
-    return list(_tool_registry.keys())
+def list_tool_factories() -> list[str]:
+    """List all registered tool factory slugs."""
+    return list(_tool_factory_registry.keys())
 ```
 
 ---
@@ -128,7 +144,7 @@ def list_tools() -> list[str]:
 from functools import wraps
 from typing import Callable
 from pydantic_ai import Tool as PydanticTool
-from mops.registry import register_agent, register_tool
+from mops.registry import register_agent, register_tool_factory
 
 
 def agent(func: Callable) -> Callable:
@@ -143,14 +159,14 @@ def agent(func: Callable) -> Callable:
 
 def tool(*, slug: str | None = None):
     """
-    Decorator that creates a PydanticAI Tool from a function and registers it.
-    Returns the PydanticAI Tool object directly (not the original function).
+    Decorator that registers a tool factory function.
+    The factory must accept **kwargs and return a PydanticAI Tool.
+    Returns the original function (not a PydanticTool).
     """
     def decorator(func: Callable):
-        tool_obj = PydanticTool(func)
         registry_slug = slug or func.__name__
-        register_tool(registry_slug, tool_obj)
-        return tool_obj  # Returns PydanticAI Tool, not the function
+        register_tool_factory(registry_slug, func)
+        return func  # Returns the original function (factory)
     return decorator
 ```
 
@@ -161,45 +177,73 @@ def tool(*, slug: str | None = None):
 import inspect
 from typing import get_origin, get_args, Any
 from pydantic_ai import Tool as PydanticTool, Agent
-from mops.models import Prompt, LLMProvider, Collection, AgentConfig
-from mops.registry import get_agent_factory, get_tool
+from mops.models import Prompt, LLMProvider, Collection, AgentConfig, ToolConfig
+from mops.registry import get_agent_factory, get_tool_factory
+
+# Custom exceptions
+class DependencyNotFoundError(ValueError):
+    """Raised when a dependency slug is not found."""
+    pass
+
+class InvalidTypeError(ValueError):
+    """Raised when a dependency type is invalid or unsupported."""
+    pass
+
 
 # Map of dependency types to their resolution strategies
 _DB_TYPE_MAP = {
     Prompt: Prompt,
     LLMProvider: LLMProvider,
     Collection: Collection,
+    ToolConfig: ToolConfig,
 }
 
 
-def resolve_dependency(param_type: type, slug: str | list[str]) -> Any:
+def resolve_dependency(param_type: type, slug: str | list[str] | None) -> Any:
     """
     Resolve a dependency slug (or list of slugs) to the actual object(s).
 
     Handles:
-    - PydanticAI Tool types (from registry)
-    - DB model types (Prompt, LLMProvider, Collection)
-    - list[PydanticTool] (multiple tools from registry)
+    - PydanticAI Tool types (instantiated from ToolConfig via tool factory)
+    - DB model types (Prompt, LLMProvider, Collection, ToolConfig)
     - list[DB model] (multiple DB objects via slug__in query)
+    - Optional types (e.g., Prompt | None)
+    - None values (for Optional parameters)
     """
-    # Handle PydanticAI Tool types (resolved from registry, not DB)
-    if param_type is PydanticTool:
-        return get_tool(slug)
+    # Handle None (for Optional parameters)
+    if slug is None:
+        if get_origin(param_type) is not type(None) and not (
+            get_origin(param_type) is Union and type(None) in get_args(param_type)
+        ):
+            raise InvalidTypeError(f"Non-optional parameter {param_type} cannot be None")
+        return None
 
-    # Handle list types: list[Tool], list[Collection], list[Prompt], list[LLMProvider]
+    # Handle PydanticAI Tool types (resolved from ToolConfig + factory)
+    if param_type is PydanticTool:
+        # slug must be a ToolConfig slug
+        tool_config = ToolConfig.objects.get(slug=slug)
+        factory = get_tool_factory(tool_config.tool_slug)
+        return factory(**tool_config.parameters)
+
+    # Handle list types: list[ToolConfig], list[Collection], list[Prompt], list[LLMProvider]
     if get_origin(param_type) is list:
         inner_type = get_args(param_type)[0]
 
         # Handle list[PydanticTool]
         if inner_type is PydanticTool:
-            return [get_tool(s) for s in slug]
+            tool_configs = ToolConfig.objects.filter(slug__in=slug)
+            tools = []
+            for tc in tool_configs:
+                factory = get_tool_factory(tc.tool_slug)
+                tools.append(factory(**tc.parameters))
+            return tools
 
         # Handle list of DB model types
         inner_model = _DB_TYPE_MAP.get(inner_type)
         if inner_model:
             return list(inner_model.objects.filter(slug__in=slug))
 
-        raise ValueError(f"Unknown list dependency type: {param_type}")
+        raise InvalidTypeError(f"Unknown list dependency type: {param_type}")
 
     # Handle DB model types
     model_class = _DB_TYPE_MAP.get(param_type)
@@ -207,9 +251,9 @@ def resolve_dependency(param_type: type, slug: str | list[str]) -> Any:
         try:
             return model_class.objects.get(slug=slug)
         except model_class.DoesNotExist:
-            raise ValueError(f"{model_class.__name__} with slug '{slug}' not found")
+            raise DependencyNotFoundError(f"{model_class.__name__} with slug '{slug}' not found")
 
-    raise ValueError(f"Unknown dependency type: {param_type}")
+    raise InvalidTypeError(f"Unknown dependency type: {param_type}")
 
 
 def get_agent(slug: str) -> Agent:
@@ -229,10 +273,16 @@ def get_agent(slug: str) -> Agent:
     kwargs = {}
     for param_name, param in sig.parameters.items():
         if param_name not in config.parameters:
-            raise ValueError(
-                f"AgentConfig for '{config.slug}' missing parameter '{param_name}' "
-                f"required by implementation '{config.implementation}'"
-            )
+            # Check if parameter has a default value
+            if param.default is inspect.Parameter.empty:
+                raise DependencyNotFoundError(
+                    f"AgentConfig for '{config.slug}' missing parameter '{param_name}' "
+                    f"required by implementation '{config.implementation}'"
+                )
+            # Use default value
+            kwargs[param_name] = param.default
+            continue
+
         param_slug = config.parameters[param_name]
         param_type = param.annotation
         kwargs[param_name] = resolve_dependency(param_type, param_slug)
@@ -244,6 +294,7 @@ def validate_agent_config(config: AgentConfig) -> list[str]:
     """
     Validate that an AgentConfig's parameters match its implementation's signature.
     Returns list of error messages, empty if valid.
+    Supports Optional and list types.
     """
     errors = []
     try:
@@ -256,15 +307,44 @@ def validate_agent_config(config: AgentConfig) -> list[str]:
     param_names = set(sig.parameters.keys())
     config_param_names = set(config.parameters.keys())
 
-    # Check for missing parameters
-    missing = param_names - config_param_names
-    for p in missing:
-        errors.append(f"Missing parameter '{p}' in config for implementation '{config.implementation}'")
+    # Check for missing required parameters (no default value)
+    for param_name, param in sig.parameters.items():
+        if param.default is inspect.Parameter.empty and param_name not in config_param_names:
+            errors.append(
+                f"Missing required parameter '{param_name}' in config for implementation "
+                f"'{config.implementation}'"
+            )
 
-    # Check for extra parameters
+    # Check for extra parameters in config
     extra = config_param_names - param_names
     for p in extra:
-        errors.append(f"Extra parameter '{p}' in config not used by implementation '{config.implementation}'")
+        errors.append(
+            f"Extra parameter '{p}' in config not used by implementation "
+            f"'{config.implementation}'"
+        )
+
+    # Check parameter types (basic validation)
+    for param_name, param in sig.parameters.items():
+        if param_name in config.parameters:
+            param_type = param.annotation
+            param_slug = config.parameters[param_name]
+
+            # Skip None checks for Optional types
+            if param_slug is None:
+                if get_origin(param_type) is not type(None) and not (
+                    get_origin(param_type) is Union and type(None) in get_args(param_type)
+                ):
+                    errors.append(
+                        f"Parameter '{param_name}' is None but type {param_type} is not Optional"
+                    )
+                continue
+
+            # For list types, validate slug is a list
+            if get_origin(param_type) is list:
+                if not isinstance(param_slug, list):
+                    errors.append(
+                        f"Parameter '{param_name}' expects list but got {type(param_slug).__name__}"
+                    )
 
     return errors
 ```
@@ -274,98 +354,66 @@ def validate_agent_config(config: AgentConfig) -> list[str]:
 ### Phase 3: Migration
 
 #### 3.1 Create new models in DB
-- [ ] Run migration from Phase 1.1 to create Prompt, update LLMProvider, create AgentConfig
+- [ ] Run migration from Phase 1.1 to create Prompt, ToolConfig, update LLMProvider, create AgentConfig
 
-#### 3.2 Create data migration script
-**File:** `mops/management/commands/migrate_to_code_defined.py`
-
-```python
-from django.core.management.base import BaseCommand
-from mops.models import Agent, Prompt, LLMProvider, Collection, AgentConfig
-
-
-class Command(BaseCommand):
-    help = "Migrate existing Agent instances to Prompt + AgentConfig"
-
-    def handle(self, *args, **options):
-        # Migrate Agent -> Prompt
-        for agent in Agent.objects.all():
-            prompt, created = Prompt.objects.get_or_create(
-                slug=agent.slug or f"prompt-{agent.id}",
-                defaults={
-                    "name": agent.name,
-                    "text": agent.instructions or "",
-                    "description": agent.description or "",
-                }
-            )
-            self.stdout.write(f"Migrated Agent '{agent.name}' -> Prompt '{prompt.slug}'")
-
-            # Create AgentConfig for each agent
-            # Use a default implementation that wraps the old behavior
-            config_slug = agent.slug or f"config-{agent.id}"
-
-            # Build parameters based on old agent fields
-            params = {
-                "prompt": prompt.slug,
-            }
-            if agent.llm_provider:
-                params["llm"] = agent.llm_provider.slug
-            if agent.search_enabled and agent.allowed_collections.exists():
-                params["collections"] = [c.slug for c in agent.allowed_collections.all()]
-
-            AgentConfig.objects.get_or_create(
-                slug=config_slug,
-                defaults={
-                    "name": agent.name,
-                    "description": agent.description or "",
-                    "implementation": "legacy_agent",  # Default wrapper
-                    "parameters": params,
-                }
-            )
-            self.stdout.write(f"  -> Created AgentConfig '{config_slug}'")
-
-        self.stdout.write(self.style.SUCCESS("Migration complete"))
-```
-
-#### 3.3 Create legacy agent wrapper
-**File:** `mops/agents.py` (new)
+#### 3.2 Create data migration
+**File:** `mops/migrations/00XX_migrate_to_code_defined.py`
 
 ```python
-"""Built-in agent implementations."""
-from pydantic_ai import Agent
-from mops import agent, tool
-from mops.models import Prompt, LLMProvider, Collection
+from django.db import migrations
 
 
-@agent
-def legacy_agent(
-    prompt: Prompt,
-    llm: LLMProvider | None = None,
-    collections: list[Collection] | None = None,
-) -> Agent:
-    """
-    Legacy agent wrapper that mimics the old Agent model behavior.
-    Used for backward compatibility during migration.
-    """
-    # Build model config
-    model_config = {}
-    if llm:
-        model_config["model"] = llm.model_name if llm.model_name else None
+def migrate_agent_to_prompt_and_config(apps, schema_editor):
+    """Migrate existing Agent instances to Prompt + AgentConfig."""
+    Agent = apps.get_model("mops", "Agent")
+    Prompt = apps.get_model("mops", "Prompt")
+    AgentConfig = apps.get_model("mops", "AgentConfig")
+    LLMProvider = apps.get_model("mops", "LLMProvider")
 
-    # Build tools
-    tools = []
-    if collections:
-        from mops.tools import search_documents_tool
-        tools.append(search_documents_tool)
+    for agent in Agent.objects.all():
+        # Create Prompt from Agent
+        prompt_slug = agent.slug or f"prompt-{agent.id}"
+        prompt = Prompt.objects.create(
+            slug=prompt_slug,
+            name=agent.name,
+            text=agent.instructions or "",
+            description=agent.description or "",
+        )
 
-    return Agent(
-        instructions=prompt.text,
-        tools=tools,
-        **model_config
-    )
+        # Create AgentConfig
+        config_slug = agent.slug or f"config-{agent.id}"
+        params = {"prompt": prompt_slug}
+
+        if agent.llm_provider:
+            params["llm"] = agent.llm_provider.slug
+
+        # Handle search_enabled and allowed_collections
+        # For migrated agents, we'll use the legacy_agent implementation
+        # which expects collections as a list
+        if agent.search_enabled and agent.allowed_collections.exists():
+            params["collections"] = [c.slug for c in agent.allowed_collections.all()]
+
+        AgentConfig.objects.create(
+            slug=config_slug,
+            name=agent.name,
+            description=agent.description or "",
+            implementation="legacy_agent",
+            parameters=params,
+        )
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        # Add dependencies on previous migrations
+        ("mops", "00XX_previous_migration"),
+    ]
+
+    operations = [
+        migrations.RunPython(migrate_agent_to_prompt_and_config, migrations.RunPython.noop),
+    ]
 ```
 
-#### 3.4 Update Conversation model
+#### 3.3 Update Conversation model
 **File:** `mops/models.py`
 
 Change:
@@ -378,42 +426,47 @@ agent_config = models.ForeignKey(
     AgentConfig,
     on_delete=models.CASCADE,
     related_name="conversations",
-    null=True,
-    blank=True
-)
-agent = models.ForeignKey(
-    Agent,
-    on_delete=models.CASCADE,
-    related_name="legacy_conversations",
-    null=True,
-    blank=True
 )
 ```
 
 Create migration for this change.
 
-#### 3.5 Backward compatibility layer
-**File:** `mops/agents.py` (add to existing)
+#### 3.4 Create legacy agent wrapper
+**File:** `mops/agents.py` (new)
 
 ```python
-# For backward compatibility, ensure old Agent-based endpoints still work
-# This will be removed in a future version
+"""Built-in agent implementations."""
+from pydantic_ai import Agent
+from mops import agent
+from mops.models import Prompt, LLMProvider, Collection
 
-def get_legacy_agent(agent: Agent) -> Agent:
-    """Get a PydanticAI Agent from the old Agent model."""
-    from pydantic_ai import Agent as PydanticAgent
 
-    tools = []
-    if agent.search_enabled and agent.allowed_collections.exists():
-        from mops.tools import search_documents_tool
-        tools.append(search_documents_tool)
-
+@agent
+def legacy_agent(
+    prompt: Prompt,
+    llm: LLMProvider | None = None,
+    collections: list[Collection] | None = None,
+) -> Agent:
+    """
+    Legacy agent wrapper that mimics the old Agent model behavior.
+    Used during migration from the old Agent model.
+    """
+    # Build model config
     model_config = {}
-    if agent.llm_provider and agent.model_name:
-        model_config["model"] = agent.model_name
+    if llm and llm.default_model:
+        model_config["model"] = llm.default_model
 
-    return PydanticAgent(
-        instructions=agent.instructions or "",
+    # Build tools
+    tools = []
+    if collections:
+        from mops.tools import search_documents_tool_factory
+        # Create a search tool configured for these collections
+        # Note: This requires ToolConfig to be set up, but for legacy purposes
+        # we'll create the tool directly here
+        tools.append(search_documents_tool_factory(collections=collections))
+
+    return Agent(
+        instructions=prompt.text,
         tools=tools,
         **model_config
     )
@@ -428,29 +481,53 @@ def get_legacy_agent(agent: Agent) -> Agent:
 
 ```python
 """Built-in tools for agents."""
+from typing import Union
 from pydantic_ai import Tool as PydanticTool
 from mops import tool
 from mops.models import Collection
 
 
 @tool(slug="search_documents")
-def search_documents_tool(query: str, collections: list[Collection]) -> str:
+def search_documents_tool_factory(collections: list[Collection]) -> PydanticTool:
     """
-    Search across configured document collections.
-
-    Returns concatenated content of top matching chunks.
+    Factory for a document search tool.
+    Creates a PydanticAI Tool that searches across the configured collections.
+    
+    Args:
+        collections: List of Collection objects to search in.
+    
+    Returns:
+        A PydanticAI Tool that can be used by agents.
     """
-    from mops.vector_store import search_similar
+    def search_documents(query: str) -> str:
+        """Search across configured document collections."""
+        from mops.vector_store import search_similar
 
-    results = []
-    for collection in collections:
-        chunks = search_similar(collection, query, k=3)
-        results.extend([c.content for c in chunks])
+        results = []
+        for collection in collections:
+            chunks = search_similar(collection, query, k=3)
+            results.extend([c.content for c in chunks])
 
-    if not results:
-        return "No matching documents found."
+        if not results:
+            return "No matching documents found."
 
-    return "\n\n".join(results)
+        return "\n\n".join(results)
+
+    return PydanticTool(search_documents)
+
+
+@tool(slug="get_weather")
+def get_weather_tool_factory() -> PydanticTool:
+    """
+    Factory for a weather tool (example stateless tool).
+    Returns a PydanticAI Tool that doesn't require runtime configuration.
+    """
+    def get_weather(city: str) -> str:
+        """Get weather information for a city."""
+        # In a real app, this would call a weather API
+        return f"The weather in {city} is sunny and 72°F."
+
+    return PydanticTool(get_weather)
 ```
 
 Verify `vector_store.py` exists and has `search_similar` function. If not, create it:
@@ -484,8 +561,7 @@ def search_similar(collection, query: str, k: int = 3, embedding_func=None):
         DocumentChunk.objects
         .filter(document__collection=collection)
         .order_by("embedding <-> %s")[:k]
-        .extra(select={"similarity": "embedding <-> %s"})
-    )[0:k]
+    )
 ```
 
 #### 4.2 Create agent endpoints
@@ -506,8 +582,7 @@ def create_agent_router(slug: str) -> Router:
     def run_agent(request, message: str):
         """Run the agent with a message."""
         agent = get_agent(slug)
-        # TODO: Handle streaming? Or return full response?
-        # For now, return synchronous response
+        # Synchronous response (streaming scoped out)
         result = agent.run(message)
         return {"response": str(result)}
 
@@ -535,11 +610,7 @@ from mops.endpoints import create_agent_router
 
 api = NinjaAPI()
 
-# Dynamically add routes for each AgentConfig
-# This needs to happen after app startup when AgentConfigs exist
-# We'll use a lazy approach: register on first access or via signal
 
-# For now, we can use a function to register all agents
 def register_agent_routes():
     """Register routes for all AgentConfig instances."""
     for config in AgentConfig.objects.all():
@@ -559,24 +630,7 @@ def list_agents(request):
         }
         for c in AgentConfig.objects.all()
     ]
-
-
-# Call register_agent_routes on startup
-# This can be done via AppConfig.ready() or a signal
-# For now, we'll call it lazily on first /agents/ request
-_agents_registered = False
-
-@api.get("/agents/", include_in_schema=False)
-def _list_agents_trigger(request):
-    """Internal: triggers route registration on first access."""
-    global _agents_registered
-    if not _agents_registered:
-        register_agent_routes()
-        _agents_registered = True
-    return list_agents(request)
 ```
-
-Alternative: Use Django's `AppConfig.ready()`:
 
 **File:** `mops/apps.py`
 ```python
@@ -588,49 +642,30 @@ class MopsConfig(AppConfig):
     name = "mops"
 
     def ready(self):
-        # Import here to avoid circular imports
+        # Register agent routes on startup
         from mops.urls import register_agent_routes
         register_agent_routes()
+
+        # Import signals to register them
+        from mops import signals  # noqa: F401
 ```
 
 #### 4.4 Add validation signals
 **File:** `mops/signals.py` (new)
 
 ```python
-from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from mops.models import AgentConfig
-from mops.resolver import validate_agent_config
+from mops.resolver import validate_agent_config, InvalidTypeError, DependencyNotFoundError
 
 
 @receiver(pre_save, sender=AgentConfig)
 def validate_agent_config_on_save(sender, instance, **kwargs):
     """Validate AgentConfig before saving."""
-    if instance.pk:  # Only validate on update if implementation changed
-        try:
-            old = AgentConfig.objects.get(pk=instance.pk)
-            if old.implementation != instance.implementation:
-                errors = validate_agent_config(instance)
-                if errors:
-                    raise ValueError("; ".join(errors))
-        except AgentConfig.DoesNotExist:
-            pass
-    else:  # New instance
-        errors = validate_agent_config(instance)
-        if errors:
-            raise ValueError("; ".join(errors))
-```
-
-Register signals in `mops/apps.py`:
-```python
-class MopsConfig(AppConfig):
-    # ...
-    def ready(self):
-        from mops.urls import register_agent_routes
-        register_agent_routes()
-
-        # Import signals to register them
-        from mops import signals  # noqa: F401
+    errors = validate_agent_config(instance)
+    if errors:
+        raise ValueError("; ".join(errors))
 ```
 
 ---
@@ -644,8 +679,8 @@ class MopsConfig(AppConfig):
 import pytest
 from pydantic_ai import Agent, Tool as PydanticTool
 from mops.registry import (
-    register_agent, register_tool, get_agent_factory, get_tool,
-    list_agents, list_tools
+    register_agent, register_tool_factory, get_agent_factory, get_tool_factory,
+    list_agents, list_tool_factories
 )
 
 
@@ -658,14 +693,15 @@ def test_agent_registration():
     assert get_agent_factory("my_agent") is my_agent
 
 
-def test_tool_registration():
-    def my_tool(x: int) -> int:
-        return x * 2
+def test_tool_factory_registration():
+    def my_tool_factory(**kwargs):
+        def my_tool(x: int) -> int:
+            return x * 2
+        return PydanticTool(my_tool)
 
-    tool_obj = PydanticTool(my_tool)
-    register_tool("my_tool", tool_obj)
-    assert "my_tool" in list_tools()
-    assert get_tool("my_tool") is tool_obj
+    register_tool_factory("my_tool", my_tool_factory)
+    assert "my_tool" in list_tool_factories()
+    assert get_tool_factory("my_tool") is my_tool_factory
 
 
 def test_get_nonexistent_agent():
@@ -673,9 +709,9 @@ def test_get_nonexistent_agent():
         get_agent_factory("nonexistent")
 
 
-def test_get_nonexistent_tool():
+def test_get_nonexistent_tool_factory():
     with pytest.raises(KeyError):
-        get_tool("nonexistent")
+        get_tool_factory("nonexistent")
 ```
 
 **File:** `tests/test_resolver.py`
@@ -683,9 +719,10 @@ def test_get_nonexistent_tool():
 ```python
 import pytest
 from pydantic_ai import Agent, Tool as PydanticTool
-from mops.models import Prompt, LLMProvider, Collection, AgentConfig
+from mops.models import Prompt, LLMProvider, Collection, AgentConfig, ToolConfig
 from mops.resolver import resolve_dependency, get_agent, validate_agent_config
-from mops.registry import register_agent, register_tool
+from mops.registry import register_agent, register_tool_factory
+from mops.resolver import DependencyNotFoundError, InvalidTypeError
 
 
 @pytest.mark.django_db
@@ -697,7 +734,7 @@ class TestResolveDependency:
 
     def test_resolve_llm_provider(self):
         provider = LLMProvider.objects.create(
-            slug="test-provider", name="Test", url="http://test.com"
+            slug="test-provider", name="Test", url="http://test.com", default_model="gpt-4"
         )
         result = resolve_dependency(LLMProvider, "test-provider")
         assert result.slug == "test-provider"
@@ -714,48 +751,92 @@ class TestResolveDependency:
         assert len(result) == 2
         assert set(r.slug for r in result) == {"c1", "c2"}
 
-    def test_resolve_tool(self):
-        def my_tool(x: int) -> int:
-            return x * 2
-        tool_obj = PydanticTool(my_tool)
-        register_tool("my_tool", tool_obj)
-        result = resolve_dependency(PydanticTool, "my_tool")
-        assert result is tool_obj
+    def test_resolve_tool_config(self):
+        # Register a tool factory
+        def search_tool_factory(collections: list[Collection], **kwargs):
+            def search(query: str) -> str:
+                return "results"
+            return PydanticTool(search)
 
-    def test_resolve_list_of_tools(self):
-        def tool1(x: int) -> int:
-            return x * 2
-        def tool2(x: int) -> int:
-            return x + 1
+        register_tool_factory("search_documents", search_tool_factory)
 
-        tool1_obj = PydanticTool(tool1)
-        tool2_obj = PydanticTool(tool2)
-        register_tool("tool1", tool1_obj)
-        register_tool("tool2", tool2_obj)
+        # Create ToolConfig
+        c1 = Collection.objects.create(slug="c1", name="C1")
+        ToolConfig.objects.create(
+            slug="search-config",
+            name="Search Config",
+            tool_slug="search_documents",
+            parameters={"collections": ["c1"]}
+        )
 
-        result = resolve_dependency(list[PydanticTool], ["tool1", "tool2"])
+        result = resolve_dependency(PydanticTool, "search-config")
+        assert isinstance(result, PydanticTool)
+
+    def test_resolve_list_of_tool_configs(self):
+        def tool_factory(**kwargs):
+            def tool(x: int) -> int:
+                return x * 2
+            return PydanticTool(tool)
+
+        register_tool_factory("tool1", tool_factory)
+        register_tool_factory("tool2", tool_factory)
+
+        ToolConfig.objects.create(
+            slug="tool-config-1", tool_slug="tool1", parameters={}
+        )
+        ToolConfig.objects.create(
+            slug="tool-config-2", tool_slug="tool2", parameters={}
+        )
+
+        result = resolve_dependency(list[PydanticTool], ["tool-config-1", "tool-config-2"])
         assert len(result) == 2
+        assert all(isinstance(t, PydanticTool) for t in result)
 
-    def test_resolve_nonexistent(self):
-        with pytest.raises(ValueError, match="not found"):
+    def test_resolve_nonexistent_prompt(self):
+        with pytest.raises(DependencyNotFoundError):
             resolve_dependency(Prompt, "nonexistent")
+
+    def test_resolve_none_for_optional(self):
+        # Optional[Prompt] should accept None
+        result = resolve_dependency(Prompt | None, None)
+        assert result is None
+
+    def test_resolve_none_for_non_optional(self):
+        with pytest.raises(InvalidTypeError):
+            resolve_dependency(Prompt, None)
 
 
 @pytest.mark.django_db
 class TestGetAgent:
     def test_get_agent_success(self):
-        # Create config
         prompt = Prompt.objects.create(slug="test-prompt", name="Test", text="Hello")
 
         @agent
         def test_agent(prompt: Prompt) -> Agent:
             return Agent(instructions=prompt.text)
 
-        config = AgentConfig.objects.create(
+        AgentConfig.objects.create(
             slug="test-agent",
             name="Test Agent",
             implementation="test_agent",
             parameters={"prompt": "test-prompt"}
+        )
+
+        agent = get_agent("test-agent")
+        assert agent.instructions == "Hello"
+
+    def test_get_agent_with_optional_param(self):
+        prompt = Prompt.objects.create(slug="test-prompt", name="Test", text="Hello")
+
+        @agent
+        def test_agent(prompt: Prompt, llm: LLMProvider | None = None) -> Agent:
+            return Agent(instructions=prompt.text)
+
+        AgentConfig.objects.create(
+            slug="test-agent",
+            name="Test Agent",
+            implementation="test_agent",
+            parameters={"prompt": "test-prompt"}  # llm is optional
         )
 
         agent = get_agent("test-agent")
@@ -781,7 +862,7 @@ class TestValidateAgentConfig:
         errors = validate_agent_config(config)
         assert errors == []
 
-    def test_missing_parameter(self):
+    def test_missing_required_parameter(self):
         @agent
         def test_agent(prompt: Prompt, llm: LLMProvider) -> Agent:
             return Agent(instructions=prompt.text)
@@ -793,7 +874,7 @@ class TestValidateAgentConfig:
         )
         errors = validate_agent_config(config)
         assert len(errors) == 1
-        assert "Missing parameter 'llm'" in errors[0]
+        assert "Missing required parameter 'llm'" in errors[0]
 
     def test_extra_parameter(self):
         @agent
@@ -818,6 +899,46 @@ class TestValidateAgentConfig:
         errors = validate_agent_config(config)
         assert len(errors) == 1
         assert "not registered" in errors[0]
+
+    def test_optional_parameter_with_none(self):
+        @agent
+        def test_agent(prompt: Prompt, llm: LLMProvider | None = None) -> Agent:
+            return Agent(instructions=prompt.text)
+
+        config = AgentConfig(
+            slug="test-agent",
+            implementation="test_agent",
+            parameters={"prompt": "test-prompt", "llm": None}
+        )
+        errors = validate_agent_config(config)
+        assert errors == []
+
+    def test_list_parameter_validation(self):
+        @agent
+        def test_agent(collections: list[Collection]) -> Agent:
+            return Agent(instructions="test")
+
+        config = AgentConfig(
+            slug="test-agent",
+            implementation="test_agent",
+            parameters={"collections": ["c1", "c2"]}  # Valid list
+        )
+        errors = validate_agent_config(config)
+        assert errors == []
+
+    def test_list_parameter_with_non_list_value(self):
+        @agent
+        def test_agent(collections: list[Collection]) -> Agent:
+            return Agent(instructions="test")
+
+        config = AgentConfig(
+            slug="test-agent",
+            implementation="test_agent",
+            parameters={"collections": "not-a-list"}  # Invalid
+        )
+        errors = validate_agent_config(config)
+        assert len(errors) == 1
+        assert "expects list" in errors[0]
 ```
 
 **File:** `tests/test_decorators.py`
@@ -825,7 +946,7 @@ class TestValidateAgentConfig:
 ```python
 import pytest
 from pydantic_ai import Agent, Tool as PydanticTool
-from mops.registry import list_agents, list_tools, get_agent_factory, get_tool
+from mops.registry import list_agents, list_tool_factories, get_agent_factory, get_tool_factory
 from mops.decorators import agent, tool
 
 
@@ -847,36 +968,42 @@ class TestAgentDecorator:
 
 
 class TestToolDecorator:
-    def test_tool_decorator_registers_tool(self):
+    def test_tool_decorator_registers_factory(self):
         @tool
-        def my_tool(x: int) -> int:
-            return x * 2
+        def my_tool_factory(**kwargs):
+            def my_tool(x: int) -> int:
+                return x * 2
+            return PydanticTool(my_tool)
 
-        assert "my_tool" in list_tools()
-        registered_tool = get_tool("my_tool")
-        assert isinstance(registered_tool, PydanticTool)
+        assert "my_tool_factory" in list_tool_factories()
+        assert get_tool_factory("my_tool_factory") is my_tool_factory
 
-    def test_tool_decorator_returns_tool_object(self):
+    def test_tool_decorator_returns_original_function(self):
         @tool
-        def my_tool(x: int) -> int:
-            return x * 2
+        def my_tool_factory(**kwargs):
+            def my_tool(x: int) -> int:
+                return x * 2
+            return PydanticTool(my_tool)
 
-        assert isinstance(my_tool, PydanticTool)
+        # Should return the original factory function
+        assert callable(my_tool_factory)
 
     def test_tool_decorator_with_custom_slug(self):
         @tool(slug="custom_slug")
-        def my_tool(x: int) -> int:
-            return x * 2
+        def my_tool_factory(**kwargs):
+            def my_tool(x: int) -> int:
+                return x * 2
+            return PydanticTool(my_tool)
 
-        assert "custom_slug" in list_tools()
-        assert get_tool("custom_slug") is my_tool
+        assert "custom_slug" in list_tool_factories()
+        assert get_tool_factory("custom_slug") is my_tool_factory
 ```
 
 **File:** `tests/test_models.py`
 
 ```python
 import pytest
-from mops.models import Prompt, LLMProvider, Collection, AgentConfig
+from mops.models import Prompt, LLMProvider, Collection, AgentConfig, ToolConfig
 
 
 @pytest.mark.django_db
@@ -894,14 +1021,30 @@ class TestPrompt:
 
 @pytest.mark.django_db
 class TestLLMProvider:
-    def test_create_provider_with_slug(self):
+    def test_create_provider_with_slug_and_default_model(self):
         provider = LLMProvider.objects.create(
             slug="openai",
             name="OpenAI",
             url="https://api.openai.com/v1",
-            available_models=["gpt-4", "gpt-3.5-turbo"]
+            available_models=["gpt-4", "gpt-3.5-turbo"],
+            default_model="gpt-4"
         )
         assert provider.slug == "openai"
+        assert provider.default_model == "gpt-4"
+
+
+@pytest.mark.django_db
+class TestToolConfig:
+    def test_create_tool_config(self):
+        config = ToolConfig.objects.create(
+            slug="search-config",
+            name="Search Config",
+            tool_slug="search_documents",
+            parameters={"collections": ["docs", "manuals"]}
+        )
+        assert config.slug == "search-config"
+        assert config.tool_slug == "search_documents"
+        assert config.parameters == {"collections": ["docs", "manuals"]}
 
 
 @pytest.mark.django_db
@@ -922,9 +1065,9 @@ class TestAgentConfig:
 ```python
 import pytest
 from django.test import Client
-from mops.models import Prompt, AgentConfig
-from mops.registry import register_agent
-from pydantic_ai import Agent
+from mops.models import Prompt, AgentConfig, ToolConfig, Collection
+from mops.registry import register_agent, register_tool_factory
+from pydantic_ai import Agent, Tool as PydanticTool
 
 
 @pytest.mark.django_db
@@ -950,7 +1093,7 @@ class TestAgentEndpoints:
         assert response.json()[0]["slug"] == "test-agent"
 
     def test_run_agent(self):
-        @register_agent("test_agent_impl", lambda prompt: Agent(instructions="test"))
+        @register_agent("test_agent_impl", lambda: Agent(instructions="test"))
         def test_agent(prompt: Prompt) -> Agent:
             return Agent(instructions=prompt.text)
 
@@ -966,19 +1109,30 @@ class TestAgentEndpoints:
         response = client.post("/api/agents/test-agent/", {"message": "Hi"}, content_type="application/json")
         assert response.status_code == 200
         assert "response" in response.json()
+
+    def test_get_agent_info(self):
+        AgentConfig.objects.create(
+            slug="test-agent",
+            name="Test Agent",
+            implementation="test_agent",
+            parameters={},
+            description="A test agent"
+        )
+
+        client = Client()
+        response = client.get("/api/agents/test-agent/")
+        assert response.status_code == 200
+        assert response.json()["slug"] == "test-agent"
+        assert response.json()["name"] == "Test Agent"
+        assert response.json()["description"] == "A test agent"
 ```
 
-#### 5.2 API Tests
+#### 5.2 Example App
+**Directory:** `/examples/mops-example/` (standalone project)
 
-Use the existing test infrastructure to test:
-- Agent registration via decorator works
-- REST endpoints are created automatically
-- Agent execution returns correct responses
-- Error handling for invalid configs
-- Streaming support (if implemented)
+**Note:** Ensure the example project's `pyproject.toml` or `requirements.txt` does not conflict with the top-level `uv` config. Use relative paths or independent dependency management.
 
-#### 5.3 Example App
-**File:** `mops-example/agents.py` (new)
+**File:** `examples/mops-example/agents.py`
 
 ```python
 """
@@ -994,17 +1148,55 @@ from mops.models import Prompt, LLMProvider, Collection
 # Tools
 # =============================================================================
 
-@tool
-def get_weather(city: str) -> str:
-    """Get weather information for a city."""
-    # In a real app, this would call a weather API
-    return f"The weather in {city} is sunny and 72°F."
+@tool(slug="get_weather")
+def get_weather_tool_factory(**kwargs) -> PydanticTool:
+    """Factory for a weather tool (stateless)."""
+    def get_weather(city: str) -> str:
+        """Get weather information for a city."""
+        # In a real app, this would call a weather API
+        return f"The weather in {city} is sunny and 72°F."
+
+    return PydanticTool(get_weather)
 
 
-@tool
-def calculate_sum(a: int, b: int) -> int:
-    """Calculate the sum of two numbers."""
-    return a + b
+@tool(slug="calculate")
+def calculate_tool_factory(**kwargs) -> PydanticTool:
+    """Factory for a calculation tool (stateless)."""
+    def calculate(a: int, b: int, operation: str = "add") -> int:
+        """Perform a calculation."""
+        if operation == "add":
+            return a + b
+        elif operation == "subtract":
+            return a - b
+        elif operation == "multiply":
+            return a * b
+        else:
+            return a // b
+
+    return PydanticTool(calculate)
+
+
+@tool(slug="search_documents")
+def search_documents_tool_factory(collections: list[Collection], **kwargs) -> PydanticTool:
+    """
+    Factory for a document search tool (parameterized).
+    Requires 'collections' parameter in ToolConfig.
+    """
+    def search_documents(query: str) -> str:
+        """Search across configured document collections."""
+        from mops.vector_store import search_similar
+
+        results = []
+        for collection in collections:
+            chunks = search_similar(collection, query, k=3)
+            results.extend([c.content for c in chunks])
+
+        if not results:
+            return "No matching documents found."
+
+        return "\n\n".join(results)
+
+    return PydanticTool(search_documents)
 
 
 # =============================================================================
@@ -1016,9 +1208,13 @@ def simple_agent(prompt: Prompt, llm: LLMProvider) -> Agent:
     """
     A simple agent that just uses a prompt and LLM provider.
     """
+    model_config = {}
+    if llm.default_model:
+        model_config["model"] = llm.default_model
+
     return Agent(
         instructions=prompt.text,
-        model=llm.model_name if llm.model_name else None,
+        **model_config
     )
 
 
@@ -1026,15 +1222,19 @@ def simple_agent(prompt: Prompt, llm: LLMProvider) -> Agent:
 def weather_agent(
     prompt: Prompt,
     llm: LLMProvider,
-    tools: list[PydanticTool],
+    weather_tool: PydanticTool,  # Injected from ToolConfig
 ) -> Agent:
     """
     An agent that can answer weather questions using the get_weather tool.
     """
+    model_config = {}
+    if llm.default_model:
+        model_config["model"] = llm.default_model
+
     return Agent(
         instructions=prompt.text,
-        model=llm.model_name if llm.model_name else None,
-        tools=tools,
+        tools=[weather_tool],
+        **model_config
     )
 
 
@@ -1042,17 +1242,19 @@ def weather_agent(
 def rag_agent(
     prompt: Prompt,
     llm: LLMProvider,
-    collections: list[Collection],
+    search_tool: PydanticTool,  # Injected from ToolConfig (search_documents with collections)
 ) -> Agent:
     """
     A RAG agent that can search documents in configured collections.
     """
-    from mops.tools import search_documents_tool
+    model_config = {}
+    if llm.default_model:
+        model_config["model"] = llm.default_model
 
     return Agent(
         instructions=prompt.text,
-        model=llm.model_name if llm.model_name else None,
-        tools=[search_documents_tool],
+        tools=[search_tool],
+        **model_config
     )
 
 
@@ -1066,14 +1268,40 @@ def multi_tool_agent(
     """
     An agent with multiple specific tools injected.
     """
+    model_config = {}
+    if llm.default_model:
+        model_config["model"] = llm.default_model
+
     return Agent(
         instructions=prompt.text,
-        model=llm.model_name if llm.model_name else None,
         tools=[weather_tool, calc_tool],
+        **model_config
+    )
+
+
+@agent
+def kitchen_sink_agent(
+    prompt: Prompt,
+    llm: LLMProvider,
+    collections: list[Collection],
+    tools: list[PydanticTool],
+) -> Agent:
+    """
+    An agent with all possible dependencies.
+    Demonstrates how to pass multiple collections and tools.
+    """
+    model_config = {}
+    if llm.default_model:
+        model_config["model"] = llm.default_model
+
+    return Agent(
+        instructions=prompt.text,
+        tools=tools,
+        **model_config
     )
 ```
 
-**File:** `mops-example/fixtures/agents.yaml` (new)
+**File:** `examples/mops-example/fixtures/agents.yaml`
 
 ```yaml
 - model: mops.Prompt
@@ -1113,6 +1341,7 @@ def multi_tool_agent(
     name: Local LLM
     url: http://127.0.0.1:8765/v1
     available_models: ["mistral:7b"]
+    default_model: mistral:7b
     last_discovered: null
 
 - model: mops.LLMProvider
@@ -1122,6 +1351,7 @@ def multi_tool_agent(
     name: OpenAI
     url: https://api.openai.com/v1
     available_models: ["gpt-4", "gpt-3.5-turbo"]
+    default_model: gpt-4
     last_discovered: null
 
 - model: mops.Collection
@@ -1139,6 +1369,40 @@ def multi_tool_agent(
     slug: manuals
     name: Manuals
     description: User manuals
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.ToolConfig
+  pk: 1
+  fields:
+    slug: weather-tool
+    name: Weather Tool
+    tool_slug: get_weather
+    parameters: {}
+    description: Stateless weather tool
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.ToolConfig
+  pk: 2
+  fields:
+    slug: calc-tool
+    name: Calculator Tool
+    tool_slug: calculate
+    parameters: {}
+    description: Stateless calculator tool
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.ToolConfig
+  pk: 3
+  fields:
+    slug: search-docs-tool
+    name: Search Documents Tool
+    tool_slug: search_documents
+    parameters:
+      collections: [docs, manuals]
+    description: Search tool configured for docs and manuals collections
     created_at: 2024-01-01T00:00:00Z
     updated_at: 2024-01-01T00:00:00Z
 
@@ -1165,7 +1429,7 @@ def multi_tool_agent(
     parameters:
       prompt: weather-prompt
       llm: openai
-      tools: [get_weather]
+      weather_tool: weather-tool
     created_at: 2024-01-01T00:00:00Z
     updated_at: 2024-01-01T00:00:00Z
 
@@ -1179,7 +1443,7 @@ def multi_tool_agent(
     parameters:
       prompt: rag-prompt
       llm: openai
-      collections: [docs, manuals]
+      search_tool: search-docs-tool
     created_at: 2024-01-01T00:00:00Z
     updated_at: 2024-01-01T00:00:00Z
 
@@ -1193,8 +1457,23 @@ def multi_tool_agent(
     parameters:
       prompt: simple-prompt
       llm: local
-      weather_tool: get_weather
-      calc_tool: calculate_sum
+      weather_tool: weather-tool
+      calc_tool: calc-tool
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.AgentConfig
+  pk: 5
+  fields:
+    slug: kitchen-sink-bot
+    name: Kitchen Sink Bot
+    description: Agent with all dependencies
+    implementation: kitchen_sink_agent
+    parameters:
+      prompt: rag-prompt
+      llm: openai
+      collections: [docs, manuals]
+      tools: [weather-tool, calc-tool, search-docs-tool]
     created_at: 2024-01-01T00:00:00Z
     updated_at: 2024-01-01T00:00:00Z
 ```
@@ -1207,7 +1486,7 @@ def multi_tool_agent(
 
 ```
 Phase 1: Foundation
-├── 1.1 Add new models (Prompt, AgentConfig, slug to LLMProvider)
+├── 1.1 Add new models (Prompt, ToolConfig, AgentConfig, slug/default_model to LLMProvider)
 │   └── Create migration
 └── 1.2 Create registry.py
 
@@ -1218,37 +1497,32 @@ Phase 2: Agent Code
     └── Requires: 1.1 (models), 1.2 (registry), 2.1 (decorators)
 
 Phase 3: Migration
-├── 3.1 Create migration script
-│   └── Requires: 1.1 (migration run)
-├── 3.2 Create legacy_agent wrapper
-│   └── Requires: 2.2 (resolver), 4.1 (tools)
-├── 3.3 Update Conversation model
+├── 3.1 Run migration from Phase 1.1
+├── 3.2 Create data migration (Agent -> Prompt + AgentConfig)
+│   └── Requires: 1.1 (models exist)
+├── 3.3 Update Conversation model (agent -> agent_config)
 │   └── Requires: 1.1 (AgentConfig exists)
 │   └── Create migration
-├── 3.4 Backward compatibility layer
-│   └── Requires: 3.2 (legacy_agent)
-└── 3.5 Run migrations
-    └── Requires: 1.1, 3.3 migrations
+└── 3.4 Create legacy_agent wrapper
+    └── Requires: 2.2 (resolver)
 
 Phase 4: Integration
-├── 4.1 Create tools.py (search_documents_tool)
+├── 4.1 Create tools.py (search_documents_tool_factory, etc.)
 │   └── Requires: vector_store.py (existing)
 ├── 4.2 Create endpoints.py
 │   └── Requires: 2.2 (resolver)
-├── 4.3 Update urls.py
+├── 4.3 Update urls.py + apps.py (AppConfig.ready())
 │   └── Requires: 4.2 (endpoints)
-├── 4.4 Add validation signals
-│   └── Requires: 2.2 (resolver)
-│   └── Register in apps.py
-└── 4.5 Register agents in example app
-    └── Requires: All Phase 2, 4.1
+└── 4.4 Add validation signals
+    └── Requires: 2.2 (resolver)
+    └── Register in apps.py
 
 Phase 5: Quality
 ├── 5.1 Unit tests (registry, resolver, decorators, models)
 │   └── Requires: All Phase 1, 2, 3, 4
 ├── 5.2 API tests
 │   └── Requires: 4.2, 4.3
-└── 5.3 Example app
+└── 5.3 Example app with fixtures
     └── Requires: All previous
 ```
 
@@ -1256,14 +1530,14 @@ Phase 5: Quality
 
 ```
 mops/
-├── models.py          # Phase 1.1
+├── models.py          # Phase 1.1 (Prompt, ToolConfig, AgentConfig, LLMProvider updates)
 ├── registry.py        # Phase 1.2
 ├── decorators.py      # Phase 2.1
 ├── resolver.py        # Phase 2.2
 ├── tools.py           # Phase 4.1
 ├── endpoints.py       # Phase 4.2
 ├── urls.py            # Phase 4.3
-├── apps.py            # Updated Phase 4.3, 4.4
+├── apps.py            # Phase 4.3, 4.4
 ├── signals.py         # Phase 4.4
 └── vector_store.py    # Verify/exists
 
@@ -1272,17 +1546,18 @@ mops-example/
 └── fixtures/
     └── agents.yaml    # Phase 5.3
 
+migrations/
+├── 00XX_add_prompt_toolconfig_agentconfig.py  # Phase 1.1
+├── 00XX_add_slug_default_model_to_llmprovider.py # Phase 1.1
+├── 00XX_update_conversation_agentconfig.py     # Phase 3.3
+└── 00XX_migrate_agent_to_prompt_agentconfig.py # Phase 3.2
+
 tests/
 ├── test_registry.py   # Phase 5.1
 ├── test_resolver.py   # Phase 5.1
 ├── test_decorators.py # Phase 5.1
 ├── test_models.py     # Phase 5.1
 └── test_endpoints.py  # Phase 5.2
-
-migrations/
-├── 00XX_add_prompt_agentconfig.py  # Phase 1.1
-├── 00XX_add_slug_to_llmprovider.py # Phase 1.1
-└── 00XX_update_conversation.py     # Phase 3.3
 ```
 
 ---
@@ -1300,15 +1575,14 @@ migrations/
 3. **Phase 4: Integration - Tools & Endpoints** (can start after Phase 2)
    - 4.1 Create tools.py
    - 4.2 Create endpoints.py
-   - 4.3 Update urls.py
+   - 4.3 Update urls.py + apps.py
    - 4.4 Add validation signals
 
 4. **Phase 3: Migration** (after Phase 1 models exist)
-   - 3.1 Create migration script
-   - 3.2 Create legacy_agent wrapper
+   - 3.1 Run migration from Phase 1.1
+   - 3.2 Create data migration (Agent -> Prompt + AgentConfig)
    - 3.3 Update Conversation model + migration
-   - 3.4 Backward compatibility layer
-   - 3.5 Run migrations
+   - 3.4 Create legacy_agent wrapper
 
 5. **Phase 5: Quality** (after core functionality works)
    - 5.1 Write unit tests
@@ -1323,6 +1597,6 @@ migrations/
 - [ ] All tests pass
 - [ ] Example app demonstrates all features
 - [ ] Documentation updated (README, docs)
-- [ ] Backward compatibility verified
-- [ ] Migration path tested
+- [ ] Migration path tested (destructive migration OK)
 - [ ] Performance acceptable (no N+1 queries in resolver)
+- [ ] Example project does not conflict with top-level uv config

@@ -1,0 +1,172 @@
+- model: mops.Prompt
+  pk: 1
+  fields:
+    slug: simple-prompt
+    name: Simple Prompt
+    text: You are a helpful assistant. Answer questions directly.
+    description: Basic prompt for simple agent
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.Prompt
+  pk: 2
+  fields:
+    slug: weather-prompt
+    name: Weather Prompt
+    text: You are a weather assistant. Use the get_weather tool to answer weather questions.
+    description: Prompt for weather agent
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.Prompt
+  pk: 3
+  fields:
+    slug: rag-prompt
+    name: RAG Prompt
+    text: You are a documentation assistant. Use the search_documents tool to find relevant information.
+    description: Prompt for RAG agent
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.LLMProvider
+  pk: 1
+  fields:
+    slug: local
+    name: Local LLM
+    url: http://127.0.0.1:8765/v1
+    available_models: ["mistral:7b"]
+    default_model: mistral:7b
+    last_discovered: null
+
+- model: mops.LLMProvider
+  pk: 2
+  fields:
+    slug: openai
+    name: OpenAI
+    url: https://api.openai.com/v1
+    available_models: ["gpt-4", "gpt-3.5-turbo"]
+    default_model: gpt-4
+    last_discovered: null
+
+- model: mops.Collection
+  pk: 1
+  fields:
+    slug: docs
+    name: Documentation
+    description: Product documentation
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.Collection
+  pk: 2
+  fields:
+    slug: manuals
+    name: Manuals
+    description: User manuals
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.ToolConfig
+  pk: 1
+  fields:
+    slug: weather-tool
+    name: Weather Tool
+    tool_slug: get_weather
+    parameters: {}
+    description: Stateless weather tool
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.ToolConfig
+  pk: 2
+  fields:
+    slug: calc-tool
+    name: Calculator Tool
+    tool_slug: calculate
+    parameters: {}
+    description: Stateless calculator tool
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.ToolConfig
+  pk: 3
+  fields:
+    slug: search-docs-tool
+    name: Search Documents Tool
+    tool_slug: search_documents
+    parameters:
+      collections: [docs, manuals]
+    description: Search tool configured for docs and manuals collections
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.AgentConfig
+  pk: 1
+  fields:
+    slug: simple-bot
+    name: Simple Bot
+    description: A simple conversational agent
+    implementation: simple_agent
+    parameters:
+      prompt: simple-prompt
+      llm: local
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.AgentConfig
+  pk: 2
+  fields:
+    slug: weather-bot
+    name: Weather Bot
+    description: Answers weather questions
+    implementation: weather_agent
+    parameters:
+      prompt: weather-prompt
+      llm: openai
+      weather_tool: weather-tool
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.AgentConfig
+  pk: 3
+  fields:
+    slug: rag-bot
+    name: Documentation Bot
+    description: Searches documentation for answers
+    implementation: rag_agent
+    parameters:
+      prompt: rag-prompt
+      llm: openai
+      search_tool: search-docs-tool
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.AgentConfig
+  pk: 4
+  fields:
+    slug: multi-tool-bot
+    name: Multi-Tool Bot
+    description: Agent with multiple tools
+    implementation: multi_tool_agent
+    parameters:
+      prompt: simple-prompt
+      llm: local
+      weather_tool: weather-tool
+      calc_tool: calc-tool
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
+
+- model: mops.AgentConfig
+  pk: 5
+  fields:
+    slug: kitchen-sink-bot
+    name: Kitchen Sink Bot
+    description: Agent with all dependencies
+    implementation: kitchen_sink_agent
+    parameters:
+      prompt: rag-prompt
+      llm: openai
+      collections: [docs, manuals]
+      tools: [weather-tool, calc-tool, search-docs-tool]
+    created_at: 2024-01-01T00:00:00Z
+    updated_at: 2024-01-01T00:00:00Z
